@@ -1,14 +1,9 @@
-const db = require('./database.js');
+const db = require('../database.js'); // POPRAWKA: Dwie kropki, bo baza jest w folderze wyżej
 
-console.log('⚠️ Przygotowanie do resetu bazy danych...');
-
+console.log('⚠️ Resetowanie bazy danych...');
 try {
-    // Usuwamy wszystkich graczy z tabeli
     db.prepare('DELETE FROM players').run();
-    // Opcjonalnie: resetujemy plik bazy (VACUUM zwalnia miejsce)
-    db.prepare('VACUUM').run();
-    
-    console.log('✅ Baza danych została pomyślnie wyczyszczona!');
-} catch (error) {
-    console.error('❌ Błąd podczas resetu:', error);
+    console.log('✅ Baza wyczyszczona!');
+} catch (e) {
+    console.error(e);
 }
