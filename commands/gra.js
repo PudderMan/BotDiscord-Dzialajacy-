@@ -31,7 +31,7 @@ module.exports = {
             .setTitle('📦 GIGA ZRZUT PIROTECHNICZNY!')
             .setDescription(`Kto pierwszy kliknie **${gameConfig.drop.required_clicks} razy**, zgarnie **${gameConfig.drop.reward}g**!`)
             .setColor('#00FFFF')
-            .setImage('https://media.tenor.com/7vY6L59W9mYAAAAC/ralph-wiggum-sparkler.gif');
+            .setImage('https://media.tenor.com/7vY6L59W9mYAAAAC/ralph-wiggum-sparkler.gif'); // Poprawiony GIF
 
         const button = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('claim_drop').setLabel('ŁAP PACZKĘ! 📦').setStyle(ButtonStyle.Primary)
@@ -49,6 +49,52 @@ module.exports = {
         }
 
         const currentMultiplier = data.multiplier + (data.dzik * gameConfig.dzik.boost);
+
+        // --- TWORZENIE KANAŁU (Zabezpieczone przed "Czynność nie powiodła się") ---
+        if (interaction.customId === 'start_game') {
+            await interaction.deferReply({ ephemeral: true });
+            
+            const { guild } = interaction;
+            const category = guild.channels.cache.get(process.env.CATEGORY_ID);
+
+            if (!category) {
+                return interaction.editReply({ content: "❌ Błąd: Nieprawidłowe ID kategorii w pliku .env!" });
+            }
+
+            try {
+                const channel = await guild.channels.create({
+                    name: `sylwester-${interaction.user.username}`,
+                    parent: category.id,
+                    permissionOverwrites: [
+                        { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                        { id: userId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks] }
+                    ],
+                });
+
+                const role = guild.roles.cache.get(process.env.BLOCKED_ROLE_ID);
+                if (role) await interaction.member.roles.add(role).catch(() => {});
+
+                const gameEmbed = new EmbedBuilder()
+                    .setTitle('🥂 Twój Sylwestrowy Magazyn')
+                    .setImage(gameConfig.gfx.main_gif)
+                    .addFields(
+                        { name: '✨ Proch:', value: `${data.proch}g`, inline: true },
+                        { name: '🚀 Mnożnik:', value: `x${currentMultiplier.toFixed(1)}`, inline: true }
+                    ).setColor(gameConfig.gfx.color);
+
+                const buttons = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('click_proch').setLabel('Klikaj! 🧨').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder().setCustomId('firework_boom').setLabel('ODPAL (1M)').setStyle(ButtonStyle.Danger)
+                );
+
+                await channel.send({ content: `Witaj ${interaction.user}!`, embeds: [gameEmbed], components: [buttons] });
+                return interaction.editReply({ content: `Twój kanał: ${channel}` });
+            } catch (e) {
+                console.error(e);
+                return interaction.editReply({ content: "❌ Błąd przy tworzeniu kanału. Sprawdź uprawnienia bota!" });
+            }
+        }
 
         // --- KLIKANIE ---
         if (interaction.customId === 'click_proch') {
@@ -77,7 +123,7 @@ module.exports = {
                     { name: `🍾 Piccolo (${gameConfig.prices.piccolo}g)`, value: `+${gameConfig.boosts.piccolo}/klik`, inline: true },
                     { name: `🥂 Szampan % (${gameConfig.prices.szampan_procenty}g)`, value: `+${gameConfig.boosts.szampan_procenty}/klik`, inline: true },
                     { name: `🚀 Wyrzutnia (${gameConfig.prices.wyrzutnia_pro}g)`, value: `+${gameConfig.boosts.wyrzutnia_pro}/klik`, inline: true },
-                    { name: `🐗 DZIK (${gameConfig.dzik.price}g)`, value: `Globalny boost x${gameConfig.dzik.boost} (Limit: ${gameConfig.dzik.limit})`, inline: false }
+                    { name: `🐗 DZIK (${gameConfig.dzik.price}g)`, value: `Boost x${gameConfig.dzik.boost} (Limit: ${gameConfig.dzik.limit})`, inline: false }
                 );
 
             const row1 = new ActionRowBuilder().addComponents(
@@ -109,8 +155,23 @@ module.exports = {
         if (interaction.customId === 'buy_szampan') await buyItem(gameConfig.prices.szampan_procenty, 'szampan', 'Szampan %');
         if (interaction.customId === 'buy_wyrzutnia') await buyItem(gameConfig.prices.wyrzutnia_pro, 'wyrzutnia', 'Wyrzutnię');
 
-        // --- PRESTIŻ I START ---
-        if (interaction.customId === 'start_game') { /* Kod tworzenia kanału jak wcześniej */ }
+        // --- ZRZUTY ---
+        if (interaction.customId === 'claim_drop') {
+            const msgId = interaction.message.id;
+            const current = (dropClicks.get(msgId) || 0) + 1;
+            dropClicks.set(msgId, current);
+
+            if (current >= gameConfig.drop.required_clicks) {
+                db.prepare('UPDATE players SET proch = proch + ? WHERE userId = ?').run(gameConfig.drop.reward, userId);
+                dropClicks.delete(msgId);
+                await interaction.message.delete().catch(() => {});
+                return interaction.channel.send(`🎉 **${interaction.user.username}** przechwycił zrzut!`);
+            } else {
+                return interaction.reply({ content: `Postęp: ${current}/${gameConfig.drop.required_clicks}`, ephemeral: true });
+            }
+        }
+
+        // --- PRESTIŻ ---
         if (interaction.customId === 'firework_boom') {
             if (data.proch < gameConfig.prices.prestige_req) return interaction.reply({ content: "Brak prochu!", ephemeral: true });
             db.prepare('UPDATE players SET proch = 0, zimne_ognie = 0, piccolo = 0, szampan = 0, wyrzutnia = 0, dzik = 0, multiplier = multiplier * ? WHERE userId = ?').run(gameConfig.boosts.prestige_multiplier, userId);
