@@ -38,7 +38,6 @@ module.exports = {
             .setTitle('📦 GIGA ZRZUT PIROTECHNICZNY!')
             .setDescription(`Kto pierwszy kliknie przycisk **${gameConfig.drop.required_clicks} razy**, zgarnie **${gameConfig.drop.reward}g prochu**!`)
             .setColor('#00FFFF')
-            // Poprawiony bezpośredni link do GIF-a z Ralphem
             .setImage('https://media.tenor.com/7vY6L59W9mYAAAAC/ralph-wiggum-sparkler.gif');
 
         const button = new ActionRowBuilder().addComponents(
@@ -108,7 +107,7 @@ module.exports = {
             return interaction.reply({ content: `Twój kanał: ${channel}`, ephemeral: true });
         }
 
-        // --- KLIKANIE (Zabezpieczone) ---
+        // --- KLIKANIE (Zabezpieczone przed błędem krytycznym) ---
         if (interaction.customId === 'click_proch') {
             const gain = (1 + 
                 (data.zimne_ognie * gameConfig.boosts.zimne_ognie) + 
@@ -122,7 +121,7 @@ module.exports = {
             if (Math.random() < gameConfig.drop.chance) await this.spawnDrop(interaction.client);
 
             const oldEmbed = interaction.message.embeds[0];
-            if (!oldEmbed) return interaction.reply({ content: "Błąd: Panel wygasł. Użyj /gra", ephemeral: true });
+            if (!oldEmbed) return interaction.reply({ content: "Błąd: Panel wygasł. Użyj ponownie /gra", ephemeral: true });
 
             const newEmbed = EmbedBuilder.from(oldEmbed)
                 .setFields(
@@ -132,7 +131,7 @@ module.exports = {
             await interaction.update({ embeds: [newEmbed] }).catch(() => {});
         }
 
-        // --- SKLEP (Wszystkie 4 przedmioty) ---
+        // --- SKLEP (Pełna oferta) ---
         if (interaction.customId === 'open_shop') {
             const shopEmbed = new EmbedBuilder()
                 .setTitle('🛒 Sklep Sylwestrowy')
@@ -157,7 +156,7 @@ module.exports = {
             await interaction.reply({ embeds: [shopEmbed], components: [row1, row2], ephemeral: true });
         }
 
-        // --- LOGIKA ZAKUPÓW ---
+        // --- ZAKUPY ---
         const buy = async (price, col, label) => {
             if (data.proch < price) return interaction.reply({ content: 'Brak środków!', ephemeral: true });
             db.prepare(`UPDATE players SET proch = proch - ?, ${col} = ${col} + 1 WHERE userId = ?`).run(price, userId);
