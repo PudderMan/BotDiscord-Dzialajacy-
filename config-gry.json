@@ -1,0 +1,25 @@
+{
+  "gfx": {
+    "main_gif": "https://pixabay.com/pl/gifs/fajerwerki-uroczysto%C5%9B%C4%87-brylant-15757/",
+    "color": "#FF4500"
+
+  },  "prices": {
+    "zimne_ognie": 25,
+    "piccolo": 150,
+    "szampan_procenty": 1200,
+    "wyrzutnia_pro": 10000,
+    "prestige_req": 1000000
+  },
+  "boosts": {
+    "zimne_ognie": 1,
+    "piccolo": 5,
+    "szampan_procenty": 25,
+    "wyrzutnia_pro": 150,
+    "prestige_multiplier": 10
+  },
+  "drop": {
+    "reward": 5000,
+    "required_clicks": 10,
+    "chance": 0.02
+  }
+}
