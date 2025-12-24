@@ -7,9 +7,16 @@ let dropClicks = new Map();
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('gra')
-        .setDescription('Uruchamia panel sylwestrowego clickera'),
+        .setDescription('Uruchamia panel sylwestrowego clickera (Tylko Admin)')
+        // BLOKADA: Tylko osoby z permisją Administratora widzą i mogą użyć tej komendy
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
+        // Dodatkowe sprawdzenie dla bezpieczeństwa
+        if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return interaction.reply({ content: "Nie masz uprawnień do używania tej komendy!", ephemeral: true });
+        }
+
         const embed = new EmbedBuilder()
             .setTitle('🎆 Wielkie Przygotowania do Sylwestra!')
             .setDescription('Potrzebujemy prochu na największy pokaz fajerwerków!\n\nKliknij przycisk poniżej, aby otrzymać własny kanał!')
@@ -31,7 +38,7 @@ module.exports = {
             .setTitle('📦 GIGA ZRZUT PIROTECHNICZNY!')
             .setDescription(`Kto pierwszy kliknie **${gameConfig.drop.required_clicks} razy**, zgarnie **${gameConfig.drop.reward}g**!`)
             .setColor('#00FFFF')
-            .setImage('https://media.tenor.com/7vY6L59W9mYAAAAC/ralph-wiggum-sparkler.gif'); // Poprawiony GIF
+            .setImage('https://media.tenor.com/7vY6L59W9mYAAAAC/ralph-wiggum-sparkler.gif');
 
         const button = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('claim_drop').setLabel('ŁAP PACZKĘ! 📦').setStyle(ButtonStyle.Primary)
@@ -50,7 +57,7 @@ module.exports = {
 
         const currentMultiplier = data.multiplier + (data.dzik * gameConfig.dzik.boost);
 
-        // --- TWORZENIE KANAŁU (Zabezpieczone przed "Czynność nie powiodła się") ---
+        // --- TWORZENIE KANAŁU ---
         if (interaction.customId === 'start_game') {
             await interaction.deferReply({ ephemeral: true });
             
