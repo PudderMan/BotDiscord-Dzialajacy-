@@ -1,6 +1,8 @@
 const Database = require('better-sqlite3');
 const db = new Database('sylwester.db');
 
+// Używamy tylko CREATE TABLE IF NOT EXISTS. 
+// Jeśli tabela już jest, to polecenie nic nie zrobi i zachowa dane.
 db.prepare(`CREATE TABLE IF NOT EXISTS players (
     userId TEXT PRIMARY KEY, 
     proch INTEGER DEFAULT 0, 
