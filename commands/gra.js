@@ -2,7 +2,6 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const db = require('../database.js');
 const gameConfig = require('../config-gry.json');
 
-// Mapa do śledzenia kliknięć w zrzuty
 let dropClicks = new Map();
 
 module.exports = {
@@ -27,12 +26,10 @@ module.exports = {
         await interaction.reply({ embeds: [embed], components: [row] });
     },
 
-    // Funkcja wywołująca zrzut
     async spawnDrop(client) {
         const channelId = process.env.DROP_CHANNEL_ID;
         const channel = await client.channels.fetch(channelId).catch(() => null);
-        
-        if (!channel) return console.error("Nie znaleziono kanału zrzutów!");
+        if (!channel) return;
 
         const dropEmbed = new EmbedBuilder()
             .setTitle('📦 GIGA ZRZUT PIROTECHNICZNY!')
@@ -56,7 +53,6 @@ module.exports = {
             data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
         }
 
-        // --- OBSŁUGA ZRZUTU ---
         if (interaction.customId === 'claim_drop') {
             const msgId = interaction.message.id;
             const current = (dropClicks.get(msgId) || 0) + 1;
@@ -66,13 +62,12 @@ module.exports = {
                 db.prepare('UPDATE players SET proch = proch + ? WHERE userId = ?').run(gameConfig.drop.reward, userId);
                 dropClicks.delete(msgId);
                 await interaction.message.delete().catch(() => {});
-                return interaction.channel.send(`🎉 **${interaction.user.username}** przechwycił zrzut i zyskał **${gameConfig.drop.reward}g** prochu!`);
+                return interaction.channel.send(`🎉 **${interaction.user.username}** przechwycił zrzut!`);
             } else {
                 return interaction.reply({ content: `Postęp: ${current}/${gameConfig.drop.required_clicks}`, ephemeral: true });
             }
         }
 
-        // --- TWORZENIE KANAŁU ---
         if (interaction.customId === 'start_game') {
             const { guild } = interaction;
             const channel = await guild.channels.create({
@@ -83,11 +78,6 @@ module.exports = {
                     { id: userId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
                 ],
             });
-
-            try {
-                const role = guild.roles.cache.get(process.env.BLOCKED_ROLE_ID);
-                if (role) await interaction.member.roles.add(role);
-            } catch (e) {}
 
             const gameEmbed = new EmbedBuilder()
                 .setTitle('🥂 Twój Sylwestrowy Magazyn')
@@ -107,31 +97,25 @@ module.exports = {
             return interaction.reply({ content: `Twój kanał: ${channel}`, ephemeral: true });
         }
 
-        // --- KLIKANIE (Zabezpieczone przed błędem krytycznym) ---
         if (interaction.customId === 'click_proch') {
-            const gain = (1 + 
-                (data.zimne_ognie * gameConfig.boosts.zimne_ognie) + 
-                (data.piccolo * gameConfig.boosts.piccolo) + 
-                (data.szampan * gameConfig.boosts.szampan_procenty) + 
-                (data.wyrzutnia * gameConfig.boosts.wyrzutnia_pro)
-            ) * data.multiplier;
-
+            const gain = (1 + (data.zimne_ognie * gameConfig.boosts.zimne_ognie) + (data.piccolo * gameConfig.boosts.piccolo) + (data.szampan * gameConfig.boosts.szampan_procenty) + (data.wyrzutnia * gameConfig.boosts.wyrzutnia_pro)) * data.multiplier;
             db.prepare('UPDATE players SET proch = proch + ? WHERE userId = ?').run(gain, userId);
             
+            // ODŚWIEŻENIE DANYCH PO ZAPISIE
+            data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
+
             if (Math.random() < gameConfig.drop.chance) await this.spawnDrop(interaction.client);
 
             const oldEmbed = interaction.message.embeds[0];
-            if (!oldEmbed) return interaction.reply({ content: "Błąd: Panel wygasł. Użyj ponownie /gra", ephemeral: true });
+            if (!oldEmbed) return interaction.reply({ content: "Błąd: Panel wygasł.", ephemeral: true });
 
-            const newEmbed = EmbedBuilder.from(oldEmbed)
-                .setFields(
-                    { name: '✨ Proch:', value: `${data.proch + gain}g`, inline: true },
-                    { name: '🚀 Mnożnik:', value: `x${data.multiplier}`, inline: true }
-                );
+            const newEmbed = EmbedBuilder.from(oldEmbed).setFields(
+                { name: '✨ Proch:', value: `${data.proch}g`, inline: true },
+                { name: '🚀 Mnożnik:', value: `x${data.multiplier}`, inline: true }
+            );
             await interaction.update({ embeds: [newEmbed] }).catch(() => {});
         }
 
-        // --- SKLEP (Pełna oferta) ---
         if (interaction.customId === 'open_shop') {
             const shopEmbed = new EmbedBuilder()
                 .setTitle('🛒 Sklep Sylwestrowy')
@@ -156,9 +140,12 @@ module.exports = {
             await interaction.reply({ embeds: [shopEmbed], components: [row1, row2], ephemeral: true });
         }
 
-        // --- ZAKUPY ---
+        // --- NAPRAWIONA LOGIKA ZAKUPÓW ---
         const buy = async (price, col, label) => {
-            if (data.proch < price) return interaction.reply({ content: 'Brak środków!', ephemeral: true });
+            // Zawsze sprawdzaj najświeższe dane z bazy przed zakupem
+            let freshData = db.prepare('SELECT proch FROM players WHERE userId = ?').get(userId);
+            if (freshData.proch < price) return interaction.reply({ content: `Brak środków! Masz ${freshData.proch}g, potrzebujesz ${price}g.`, ephemeral: true });
+            
             db.prepare(`UPDATE players SET proch = proch - ?, ${col} = ${col} + 1 WHERE userId = ?`).run(price, userId);
             await interaction.reply({ content: `Kupiono: ${label}!`, ephemeral: true });
         };
@@ -168,11 +155,10 @@ module.exports = {
         if (interaction.customId === 'buy_szampan') await buy(gameConfig.prices.szampan_procenty, 'szampan', 'Szampan %');
         if (interaction.customId === 'buy_wyrzutnia') await buy(gameConfig.prices.wyrzutnia_pro, 'wyrzutnia', 'Wyrzutnię');
 
-        // --- PRESTIŻ ---
         if (interaction.customId === 'firework_boom') {
-            if (data.proch < gameConfig.prices.prestige_req) return interaction.reply({ content: `Wymagane ${gameConfig.prices.prestige_req}g prochu!`, ephemeral: true });
+            if (data.proch < gameConfig.prices.prestige_req) return interaction.reply({ content: `Wymagane ${gameConfig.prices.prestige_req}g!`, ephemeral: true });
             db.prepare('UPDATE players SET proch = 0, zimne_ognie = 0, piccolo = 0, szampan = 0, wyrzutnia = 0, multiplier = multiplier * ? WHERE userId = ?').run(gameConfig.boosts.prestige_multiplier, userId);
-            await interaction.reply({ content: '🎆 **WIELKI WYSTRZAŁ!** Twój mnożnik wzrósł permanentnie!' });
+            await interaction.reply({ content: '🎆 **WIELKI WYSTRZAŁ!**' });
         }
     }
 };
