@@ -19,7 +19,7 @@
   },
   "drop": {
     "reward": 5000,
-    "required_clicks": 10,
+    "required_clicks": 1,
     "chance": 0.02
   }
 }
