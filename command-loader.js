@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
-const db = require('../database.js');
-const gameConfig = require('../config-gry.json'); // Import konfiguracji
+const db = require('./database.js');
+const gameConfig = require('./config-gry.json'); // Import konfiguracji
 
 module.exports = {
     data: new SlashCommandBuilder()
