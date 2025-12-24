@@ -1,4 +1,4 @@
-const db = require('../database.js'); // POPRAWKA: Dwie kropki, bo baza jest w folderze wyżej
+const db = require('./database.js'); // POPRAWKA: Dwie kropki, bo baza jest w folderze wyżej
 
 console.log('⚠️ Resetowanie bazy danych...');
 try {
