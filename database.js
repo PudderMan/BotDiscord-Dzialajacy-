@@ -1,0 +1,12 @@
+const Database = require('better-sqlite3');
+const db = new Database('sylwester.db');
+
+db.prepare(`CREATE TABLE IF NOT EXISTS players (
+    userId TEXT PRIMARY KEY, 
+    proch INTEGER DEFAULT 0, 
+    multiplier INTEGER DEFAULT 1,
+    piccolo INTEGER DEFAULT 0,
+    szampan INTEGER DEFAULT 0
+)`).run();
+
+module.exports = db;
