@@ -12,7 +12,7 @@ module.exports = {
     async execute(interaction) {
         const embed = new EmbedBuilder()
             .setTitle('🎆 Wielkie Przygotowania do Sylwestra!')
-            .setDescription('Kliknij przycisk poniżej, aby otrzymać własny kanał.\n**Uwaga:** Ten kanał zostanie przed Tobą ukryty po starcie!')
+            .setDescription('Kliknij przycisk poniżej, aby otrzymać własny kanał.')
             .setColor(gameConfig.gfx.color);
 
         const row = new ActionRowBuilder().addComponents(
