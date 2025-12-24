@@ -1,9 +1,9 @@
 {
   "gfx": {
-    "main_gif": "https://pixabay.com/pl/gifs/fajerwerki-uroczysto%C5%9B%C4%87-brylant-15757/",
+    "main_gif": "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJpY2NqZ3R4Z3R4Z3R4Z3R4Z3R4Z3R4Z3R4Z3R4Z3R4Z3ImZXA9djFfaW50ZXJuYWxfZ2lmX2J5X2lkJmN0PWc/26tOZ42Mg6pbMubM4/giphy.gif",
     "color": "#FF4500"
-
-  },  "prices": {
+  },
+  "prices": {
     "zimne_ognie": 25,
     "piccolo": 150,
     "szampan_procenty": 1200,
