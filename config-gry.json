@@ -1,7 +1,7 @@
 {
   "gfx": {
-    "main_gif": "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJpY2NqZ3R4Z3R4Z3R4Z3R4Z3R4Z3R4Z3R4Z3R4Z3R4Z3ImZXA9djFfaW50ZXJuYWxfZ2lmX2J5X2lkJmN0PWc/26tOZ42Mg6pbMubM4/giphy.gif",
-    "color": "#FF4500"
+    "color": "#FF4500",
+    "main_gif": "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJmZzRyeGZ6ZzRyeGZ6ZzRyeGZ6ZzRyeGZ6ZzRyeGZ6ZzRyeGZ6ZzRyeCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKVUn7iM8FMEU24/giphy.gif"
   },
   "prices": {
     "zimne_ognie": 25,
@@ -15,11 +15,16 @@
     "piccolo": 5,
     "szampan_procenty": 25,
     "wyrzutnia_pro": 150,
-    "prestige_multiplier": 10
+    "prestige_multiplier": 2
   },
   "drop": {
+    "chance": 0.05,
     "reward": 5000,
-    "required_clicks": 1,
-    "chance": 0.02
+    "required_clicks": 1
+  },
+  "dzik": {
+    "price": 50000,
+    "boost": 1.5,
+    "limit": 2
   }
 }
