@@ -5,6 +5,7 @@ const gameConfig = require('../config-gry.json');
 const formatNum = (n) => {
     let num = Number(n);
     if (isNaN(num)) return "0g";
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'kg';
     return Math.floor(num).toString() + 'g';
 };
@@ -43,12 +44,21 @@ module.exports = {
             const itemsGain = (data.zimne_ognie * gameConfig.boosts.zimne_ognie) + (data.piccolo * gameConfig.boosts.piccolo) + (data.szampan * gameConfig.boosts.szampan_procenty) + (data.wyrzutnia * gameConfig.boosts.wyrzutnia_pro);
             const totalGain = Math.floor((1 + itemsGain) * curMult);
             db.prepare('UPDATE players SET proch = proch + ? WHERE userId = ?').run(totalGain, userId);
+            
             const upEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setFields(
                 { name: '✨ Proch:', value: `${formatNum(data.proch + totalGain)}`, inline: true },
                 { name: '🚀 Mnożnik:', value: `x${curMult.toFixed(1)}`, inline: true },
                 { name: '🎇 Fajerwerki:', value: `${data.fajerwerki_waluta}`, inline: true }
             );
-            return interaction.update({ embeds: [upEmbed] });
+
+            // AKTUALIZACJA PRZYCISKU ODPAL (DYNAMICZNA CENA)
+            const upRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('click_proch').setLabel('Zabierz Proch! 🧨').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatNum(nextPresPrice)})`).setStyle(ButtonStyle.Danger)
+            );
+
+            return interaction.update({ embeds: [upEmbed], components: [upRow] });
         }
 
         if (interaction.customId === 'open_shop' || interaction.customId.startsWith('shop_p')) {
@@ -106,7 +116,7 @@ module.exports = {
                 if (data.mega_multiplier > 1) return interaction.reply({ content: "❌ Paczka jest jednorazowa!", flags: [MessageFlags.Ephemeral] });
                 if (data.fajerwerki_waluta < gameConfig.prices.paczka_fajerwerek_cost) return interaction.reply({ content: "❌ Brak 🎇!", flags: [MessageFlags.Ephemeral] });
                 db.prepare(`UPDATE players SET proch=0, multiplier=1, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, brawlpass_count=0, total_fajerwerki=0, fajerwerki_waluta=0, mega_multiplier=10 WHERE userId=?`).run(userId);
-                return interaction.reply({ content: "💥 TOTALNY RESET! Wszystko wyzerowane (w tym 🎇), otrzymałeś x10!", flags: [MessageFlags.Ephemeral] });
+                return interaction.reply({ content: "💥 TOTALNY RESET! Wszystko wyzerowane, otrzymałeś x10!", flags: [MessageFlags.Ephemeral] });
             }
             let cost = 0, dbCol = "";
             if (item === 'brawlpass') {
@@ -123,19 +133,30 @@ module.exports = {
             }
             if (data.proch < cost) return interaction.reply({ content: "❌ Brak prochu!", flags: [MessageFlags.Ephemeral] });
             db.prepare(`UPDATE players SET proch = proch - ?, ${dbCol} = ${dbCol} + 1 WHERE userId = ?`).run(cost, userId);
-            return interaction.reply({ content: `✅ Zakupiono ${item}!`, flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: `✅ Kupiono ${item}!`, flags: [MessageFlags.Ephemeral] });
         }
 
         if (interaction.customId === 'firework_boom') {
             if (data.proch < nextPresPrice) return interaction.reply({ content: `❌ Wymagane: ${formatNum(nextPresPrice)}`, flags: [MessageFlags.Ephemeral] });
             db.prepare('UPDATE players SET proch=0, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, brawlpass_count=0, total_fajerwerki=total_fajerwerki+1, fajerwerki_waluta=fajerwerki_waluta+1 WHERE userId=?').run(userId);
+            
+            // ODSWIEZENIE WIDOKU PO PRESTIZU
             const freshData = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
+            const newPrice = gameConfig.prices.prestige_base * Math.pow(gameConfig.prices.prestige_scaling, freshData.total_fajerwerki);
+            
             const presEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setFields(
                 { name: '✨ Proch:', value: `0g`, inline: true },
-                { name: '🚀 Mnożnik:', value: `x${((freshData.multiplier + (freshData.brawlpass_count * 5) + (freshData.dzik * gameConfig.boosts.dzik_val)) * freshData.mega_multiplier * Math.pow(2, freshData.total_fajerwerki)).toFixed(1)}`, inline: true },
+                { name: '🚀 Mnożnik:', value: `x${(freshData.mega_multiplier * Math.pow(2, freshData.total_fajerwerki)).toFixed(1)}`, inline: true },
                 { name: '🎇 Fajerwerki:', value: `${freshData.fajerwerki_waluta}`, inline: true }
             );
-            return interaction.update({ embeds: [presEmbed] });
+            
+            const presRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('click_proch').setLabel('Zabierz Proch! 🧨').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatNum(newPrice)})`).setStyle(ButtonStyle.Danger)
+            );
+
+            return interaction.update({ embeds: [presEmbed], components: [presRow] });
         }
 
         if (interaction.customId === 'start_game') {
@@ -145,7 +166,7 @@ module.exports = {
                 parent: process.env.CATEGORY_ID || null,
                 permissionOverwrites: [{ id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] }, { id: userId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }],
             });
-            const gEmbed = new EmbedBuilder().setTitle('🥂 Magazyn').setImage(gameConfig.gfx.main_gif).setColor(gameConfig.gfx.color)
+            const gEmbed = new EmbedBuilder().setTitle('🥂 Twój Magazyn').setImage(gameConfig.gfx.main_gif).setColor(gameConfig.gfx.color)
                 .addFields({ name: '✨ Proch:', value: `${formatNum(data.proch)}`, inline: true }, { name: '🚀 Mnożnik:', value: `x${curMult.toFixed(1)}`, inline: true }, { name: '🎇 Fajerwerki:', value: `${data.fajerwerki_waluta}`, inline: true });
             const btns = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('click_proch').setLabel('Zabierz Proch! 🧨').setStyle(ButtonStyle.Success),
