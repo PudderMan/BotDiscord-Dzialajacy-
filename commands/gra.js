@@ -36,38 +36,31 @@ module.exports = {
             data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
         }
 
-        const prestigeMult = Math.pow(2, Number(data.total_fajerwerki)); 
-        const curMult = (Number(data.multiplier) + (Number(data.brawlpass_count) * 5) + (Number(data.dzik) * gameConfig.boosts.dzik_val)) * Number(data.mega_multiplier) * prestigeMult;
-        const nextPresPrice = Number(gameConfig.prices.prestige_base) * Math.pow(Number(gameConfig.prices.prestige_scaling), Number(data.total_fajerwerki));
+        // --- MNOŻNIK I CENY ---
+        const prestigeMult = Math.pow(2, data.total_fajerwerki); 
+        const curMult = (data.multiplier + (data.brawlpass_count * 5) + (data.dzik * gameConfig.boosts.dzik_val)) * data.mega_multiplier * prestigeMult;
+        const nextPresPrice = gameConfig.prices.prestige_base * Math.pow(gameConfig.prices.prestige_scaling, data.total_fajerwerki);
         const currentBpPrice = gameConfig.prices.brawlpass_base * Math.pow(gameConfig.prices.brawlpass_scaling, data.brawlpass_count);
 
         // --- KLIKANIE ---
         if (interaction.customId === 'click_proch') {
-            const baseGain = 1 + (data.zimne_ognie * gameConfig.boosts.zimne_ognie) + (data.piccolo * gameConfig.boosts.piccolo) + (data.szampan * gameConfig.boosts.szampan_procenty) + (data.wyrzutnia * gameConfig.boosts.wyrzutnia_pro);
-            const totalGain = Math.floor(baseGain * curMult);
-            db.prepare('UPDATE players SET proch = proch + ? WHERE userId = ?').run(totalGain, userId);
-            
+            const gain = (1 + (data.zimne_ognie * gameConfig.boosts.zimne_ognie) + (data.piccolo * gameConfig.boosts.piccolo) + (data.szampan * gameConfig.boosts.szampan_procenty) + (data.wyrzutnia * gameConfig.boosts.wyrzutnia_pro)) * curMult;
+            db.prepare('UPDATE players SET proch = proch + ? WHERE userId = ?').run(Math.floor(gain), userId);
             const upEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setFields(
-                { name: '✨ Proch:', value: `${formatNum(data.proch + totalGain)}g`, inline: true },
+                { name: '✨ Proch:', value: `${formatNum(data.proch + gain)}g`, inline: true },
                 { name: '🚀 Mnożnik:', value: `x${curMult.toFixed(1)}`, inline: true },
                 { name: '🎇 Fajerwerki:', value: `${data.fajerwerki_waluta}`, inline: true }
             );
             return interaction.update({ embeds: [upEmbed] });
         }
 
-        // --- SKLEP (NAPRAWIONY) ---
+        // --- SKLEP ---
         if (interaction.customId === 'open_shop' || interaction.customId.startsWith('shop_p')) {
-            const page = interaction.customId === 'open_shop' ? 1 : parseInt(interaction.customId.replace('shop_p', ''));
+            const page = interaction.customId === 'open_shop' ? 1 : parseInt(interaction.customId.split('p')[1]);
             const sEmbed = new EmbedBuilder().setTitle(`🛒 Sklep - Str. ${page}`).setColor('#2ECC71').setDescription(`Proch: **${formatNum(data.proch)}g**`);
             const rows = [new ActionRowBuilder(), new ActionRowBuilder()];
 
             if (page === 1) {
-                sEmbed.addFields(
-                    { name: '🎇 Zimne', value: `${gameConfig.prices.zimne_ognie}g`, inline: true },
-                    { name: '🍾 Piccolo', value: `${gameConfig.prices.piccolo}g`, inline: true },
-                    { name: '🥂 Szampan', value: `${gameConfig.prices.szampan_procenty}g`, inline: true },
-                    { name: '🚀 Wyrzutnia', value: `${gameConfig.prices.wyrzutnia_pro}g`, inline: true }
-                );
                 rows[0].addComponents(
                     new ButtonBuilder().setCustomId('buy_zimne').setLabel('Zimne').setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId('buy_piccolo').setLabel('Piccolo').setStyle(ButtonStyle.Secondary),
@@ -75,42 +68,44 @@ module.exports = {
                     new ButtonBuilder().setCustomId('buy_wyrzutnia').setLabel('Wyrzutnia').setStyle(ButtonStyle.Secondary)
                 );
                 rows[1].addComponents(new ButtonBuilder().setCustomId('shop_p2').setLabel('Strona 2 ➡️').setStyle(ButtonStyle.Primary));
-            } else if (page === 2) {
+            } else {
                 const dzikCost = gameConfig.prices.dzik_prices[data.dzik] || "MAX";
-                sEmbed.addFields(
-                    { name: `🐗 Dzik (${data.dzik}/5)`, value: `${formatNum(dzikCost)}g`, inline: true },
-                    { name: `🌵 BP (${data.brawlpass_count}/${gameConfig.boosts.brawlpass_limit})`, value: `${formatNum(currentBpPrice)}g`, inline: true }
-                );
                 rows[0].addComponents(
-                    new ButtonBuilder().setCustomId('buy_dzik').setLabel('Dzik').setStyle(ButtonStyle.Success).setDisabled(dzikCost === "MAX"),
-                    new ButtonBuilder().setCustomId('buy_brawlpass').setLabel('BrawlPass').setStyle(ButtonStyle.Danger).setDisabled(data.brawlpass_count >= gameConfig.boosts.brawlpass_limit)
+                    new ButtonBuilder().setCustomId('buy_dzik').setLabel(`Dzik (${data.dzik}/5)`).setStyle(ButtonStyle.Success).setDisabled(dzikCost === "MAX"),
+                    new ButtonBuilder().setCustomId('buy_brawlpass').setLabel(`BP (${data.brawlpass_count}/${gameConfig.boosts.brawlpass_limit})`).setStyle(ButtonStyle.Danger).setDisabled(data.brawlpass_count >= gameConfig.boosts.brawlpass_limit)
                 );
                 rows[1].addComponents(new ButtonBuilder().setCustomId('shop_p1').setLabel('⬅️ Strona 1').setStyle(ButtonStyle.Primary));
             }
             return interaction.reply({ embeds: [sEmbed], components: rows, flags: [MessageFlags.Ephemeral] });
         }
 
-        // --- ZAKUPY ---
+        // --- ZAKUPY Z BLOKADĄ ---
         if (interaction.customId.startsWith('buy_')) {
             const item = interaction.customId.replace('buy_', '');
-            let cost = 0;
-            let col = item === 'zimne' ? 'zimne_ognie' : (item === 'szampan' ? 'szampan' : (item === 'wyrzutnia' ? 'wyrzutnia' : item));
+            let cost = 0, col = item;
 
-            if (item === 'brawlpass') cost = currentBpPrice;
-            else if (item === 'dzik') cost = gameConfig.prices.dzik_prices[data.dzik];
-            else cost = gameConfig.prices[item === 'zimne' ? 'zimne_ognie' : (item === 'szampan' ? 'szampan_procenty' : (item === 'wyrzutnia' ? 'wyrzutnia_pro' : item))];
+            if (item === 'brawlpass') {
+                if (data.brawlpass_count >= gameConfig.boosts.brawlpass_limit) return interaction.reply({ content: "❌ Limit BP!", flags: [MessageFlags.Ephemeral] });
+                cost = currentBpPrice; col = 'brawlpass_count';
+            } else if (item === 'dzik') {
+                cost = gameConfig.prices.dzik_prices[data.dzik];
+                if (!cost) return interaction.reply({ content: "❌ Limit Dzika!", flags: [MessageFlags.Ephemeral] });
+            } else {
+                const keys = { zimne: 'zimne_ognie', szampan: 'szampan', wyrzutnia: 'wyrzutnia', piccolo: 'piccolo' };
+                const priceKeys = { zimne: 'zimne_ognie', szampan: 'szampan_procenty', wyrzutnia: 'wyrzutnia_pro', piccolo: 'piccolo' };
+                col = keys[item]; cost = gameConfig.prices[priceKeys[item]];
+            }
 
-            if (!cost || data.proch < cost) return interaction.reply({ content: "❌ Brak środków!", flags: [MessageFlags.Ephemeral] });
-
-            db.prepare(`UPDATE players SET proch = proch - ?, ${col === 'brawlpass' ? 'brawlpass_count' : col} = ${col === 'brawlpass' ? 'brawlpass_count' : col} + 1 WHERE userId = ?`).run(cost, userId);
-            return interaction.reply({ content: `✅ Zakupiono ${item}!`, flags: [MessageFlags.Ephemeral] });
+            if (data.proch < cost) return interaction.reply({ content: "❌ Brak prochu!", flags: [MessageFlags.Ephemeral] });
+            db.prepare(`UPDATE players SET proch = proch - ?, ${col} = ${col} + 1 WHERE userId = ?`).run(cost, userId);
+            return interaction.reply({ content: `✅ Kupiono: ${item}`, flags: [MessageFlags.Ephemeral] });
         }
 
-        // --- ODPALANIE (PRESTIŻ + RESET) ---
+        // --- ODPALANIE (FIX) ---
         if (interaction.customId === 'firework_boom') {
-            if (data.proch < nextPresPrice) return interaction.reply({ content: "❌ Za mało prochu!", flags: [MessageFlags.Ephemeral] });
+            if (data.proch < nextPresPrice) return interaction.reply({ content: `❌ Potrzebujesz ${formatNum(nextPresPrice)}g!`, flags: [MessageFlags.Ephemeral] });
             db.prepare('UPDATE players SET proch=0, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, brawlpass_count=0, total_fajerwerki=total_fajerwerki+1, fajerwerki_waluta=fajerwerki_waluta+1 WHERE userId=?').run(userId);
-            return interaction.reply({ content: "🎆 WYBUCH! Mnożnik x2, ulepszenia zresetowane!", flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: "🎆 **BUM!** Prestiż wbity, mnożnik x2!", flags: [MessageFlags.Ephemeral] });
         }
 
         // --- START ---
@@ -129,7 +124,7 @@ module.exports = {
                 new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatNum(nextPresPrice)})`).setStyle(ButtonStyle.Danger)
             );
             await ch.send({ embeds: [gEmbed], components: [btns] });
-            return interaction.editReply({ content: `Gotowe: ${ch}` });
+            return interaction.editReply({ content: `Kanał: ${ch}` });
         }
     }
 };
