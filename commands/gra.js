@@ -39,12 +39,16 @@ module.exports = {
             data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
         }
 
+        // --- LOGIKA MNOŻNIKA (Mnożnik x2 za każdą fajerwerkę) ---
+        const prestigeMult = Math.pow(2, Number(data.total_fajerwerki)); 
         const multiplier = Number(data.multiplier) || 1;
         const megaMult = Number(data.mega_multiplier) || 1;
         const currentProch = Number(data.proch) || 0;
-        const curMult = (multiplier + (Number(data.dzik) * gameConfig.boosts.dzik_val)) * megaMult;
         
-        // POPRAWIONA CENA PRESTIŻU
+        // Finalny mnożnik: (bazowy + dziki) * mega_multi (z paczek) * prestige_multi (za fajerwerki)
+        const curMult = (multiplier + (Number(data.dzik) * gameConfig.boosts.dzik_val)) * megaMult * prestigeMult;
+        
+        // CENA PRESTIŻU (100k bazowo)
         const nextPresPrice = Number(gameConfig.prices.prestige_base) * Math.pow(Number(gameConfig.prices.prestige_scaling), Number(data.total_fajerwerki));
         
         const bpCount = data.brawlpass_count || 0;
@@ -76,6 +80,7 @@ module.exports = {
                 sEmbed.addFields({ name: `🎇 Zimne (+${gameConfig.boosts.zimne_ognie}g)`, value: `**${gameConfig.prices.zimne_ognie}g**`, inline: true }, { name: `🍾 Piccolo (+${gameConfig.boosts.piccolo}g)`, value: `**${gameConfig.prices.piccolo}g**`, inline: true }, { name: `🥂 Szampan (+${gameConfig.boosts.szampan_procenty}g)`, value: `**${gameConfig.prices.szampan_procenty}g**`, inline: true }, { name: `🚀 Wyrzutnia (+${gameConfig.boosts.wyrzutnia_pro}g)`, value: `**${gameConfig.prices.wyrzutnia_pro}g**`, inline: true });
                 rows[0].addComponents(new ButtonBuilder().setCustomId('buy_zimne').setLabel('Zimne').setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId('buy_piccolo').setLabel('Piccolo').setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId('buy_szampan').setLabel('Szampan').setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId('buy_wyrzutnia').setLabel('Wyrzutnia').setStyle(ButtonStyle.Secondary));
                 rows[1].addComponents(new ButtonBuilder().setCustomId('shop_p2').setLabel('Strona 2 (2🎇) ➡️').setStyle(ButtonStyle.Primary));
+                rows.push(rowItems, rowNav);
             } else if (page === 2) {
                 const dzikCost = gameConfig.prices.dzik_prices[data.dzik] || "MAX";
                 sEmbed.addFields({ name: `🐗 Dzik (+${gameConfig.boosts.dzik_val})`, value: `Koszt: **${formatNum(dzikCost)}g**`, inline: true }, { name: `🌵 BrawlPass (${bpCount}/${gameConfig.boosts.brawlpass_limit})`, value: `Koszt: **${formatNum(currentBpPrice)}g**`, inline: true });
@@ -109,8 +114,9 @@ module.exports = {
 
         if (interaction.customId === 'firework_boom') {
             if (currentProch < nextPresPrice) return interaction.reply({ content: `❌ Potrzebujesz ${formatNum(nextPresPrice)}g!`, ephemeral: true });
+            // Dodajemy 1 do total_fajerwerki (co zwiększa mnożnik x2) i 1 do waluty
             db.prepare('UPDATE players SET proch=0, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, total_fajerwerki=total_fajerwerki+1, fajerwerki_waluta=fajerwerki_waluta+1 WHERE userId=?').run(userId);
-            return interaction.reply({ content: "🎆 WYSTRZAŁ! +1 🎇", ephemeral: true });
+            return interaction.reply({ content: "🎆 WYSTRZAŁ! Twój mnożnik wzrósł x2! Otrzymano 1 🎇", ephemeral: true });
         }
 
         if (interaction.customId === 'start_game') {
