@@ -17,13 +17,17 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
+        // --- PROSTY WYGLĄD KOMENDY STARTOWEJ ---
         const embed = new EmbedBuilder()
             .setTitle('🎆 Sylwester 2025')
-            .setDescription('Kliknij przycisk poniżej, aby stworzyć swój magazyn!')
+            .setDescription('Kliknij przycisk poniżej, aby stworzyć swój własny magazyn fajerwerków!')
             .setColor(gameConfig.gfx.color);
 
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('start_game').setLabel('Zacznij Przygodę! 🧨').setStyle(ButtonStyle.Danger)
+            new ButtonBuilder()
+                .setCustomId('start_game')
+                .setLabel('Zacznij Przygodę! 🧨')
+                .setStyle(ButtonStyle.Danger)
         );
 
         await interaction.reply({ embeds: [embed], components: [row] });
@@ -43,15 +47,17 @@ module.exports = {
         const nextPresPrice = Number(gameConfig.prices.prestige_base) * Math.pow(Number(gameConfig.prices.prestige_scaling), Number(data.total_fajerwerki));
         const currentBpPrice = gameConfig.prices.brawlpass_base * Math.pow(gameConfig.prices.brawlpass_scaling, data.brawlpass_count);
 
-        // --- SKLEP (NAPRAWIONE WYŚWIETLANIE PRZEDMIOTÓW) ---
+        // --- SKLEP ---
         if (interaction.customId === 'open_shop' || interaction.customId.startsWith('shop_p')) {
             const page = interaction.customId === 'open_shop' ? 1 : parseInt(interaction.customId.replace('shop_p', ''));
             
             if (page === 2 && data.fajerwerki_waluta < 2) return interaction.reply({ content: "❌ Wymagane 2 🎇!", flags: [MessageFlags.Ephemeral] });
             if (page === 3 && data.fajerwerki_waluta < 10) return interaction.reply({ content: "❌ Wymagane 10 🎇!", flags: [MessageFlags.Ephemeral] });
 
-            const sEmbed = new EmbedBuilder().setTitle(`🛒 Sklep - Str. ${page}`).setColor('#2ECC71')
-                .setDescription(`Proch: **${formatNum(data.proch)}g** | 🎇: **${data.fajerwerki_waluta}**`);
+            const sEmbed = new EmbedBuilder()
+                .setTitle(`🛒 Sklep - Strona ${page}`)
+                .setColor('#2ECC71')
+                .setDescription(`Twój Proch: **${formatNum(data.proch)}g** | Twoje 🎇: **${data.fajerwerki_waluta}**`);
             
             const rows = [new ActionRowBuilder(), new ActionRowBuilder()];
 
@@ -68,7 +74,7 @@ module.exports = {
                     new ButtonBuilder().setCustomId('buy_szampan').setLabel('Szampan').setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId('buy_wyrzutnia').setLabel('Wyrzutnia').setStyle(ButtonStyle.Secondary)
                 );
-                rows[1].addComponents(new ButtonBuilder().setCustomId('shop_p2').setLabel('Str. 2 (2🎇) ➡️').setStyle(ButtonStyle.Primary));
+                rows[1].addComponents(new ButtonBuilder().setCustomId('shop_p2').setLabel('Strona 2 (2🎇) ➡️').setStyle(ButtonStyle.Primary));
             } else if (page === 2) {
                 const dzikCost = gameConfig.prices.dzik_prices[data.dzik] || "MAX";
                 sEmbed.addFields(
@@ -80,46 +86,49 @@ module.exports = {
                     new ButtonBuilder().setCustomId('buy_brawlpass').setLabel('BrawlPass').setStyle(ButtonStyle.Danger).setDisabled(data.brawlpass_count >= gameConfig.boosts.brawlpass_limit)
                 );
                 rows[1].addComponents(
-                    new ButtonBuilder().setCustomId('shop_p1').setLabel('⬅️ Str. 1').setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder().setCustomId('shop_p3').setLabel('Str. 3 (10🎇) ➡️').setStyle(ButtonStyle.Primary)
+                    new ButtonBuilder().setCustomId('shop_p1').setLabel('⬅️ Strona 1').setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder().setCustomId('shop_p3').setLabel('Strona 3 (10🎇) ➡️').setStyle(ButtonStyle.Primary)
                 );
             } else if (page === 3) {
-                sEmbed.addFields({ name: '📦 PACZKA SYLWESTROWA', value: `Koszt: **${gameConfig.prices.paczka_fajerwerek_cost} 🎇**\n\nBonus: Mega Boost x10!` });
+                sEmbed.addFields({ name: '📦 PACZKA SYLWESTROWA', value: `Koszt: **${gameConfig.prices.paczka_fajerwerek_cost} 🎇**\n\n- Mega Boost x10\n- Resetuje ulepszenia\n- Zostawia twoje 🎇` });
                 rows[0].addComponents(new ButtonBuilder().setCustomId('buy_paczka').setLabel('ODPAL PACZKĘ 🎆').setStyle(ButtonStyle.Danger));
-                rows[1].addComponents(new ButtonBuilder().setCustomId('shop_p2').setLabel('⬅️ Str. 2').setStyle(ButtonStyle.Primary));
+                rows[1].addComponents(new ButtonBuilder().setCustomId('shop_p2').setLabel('⬅️ Strona 2').setStyle(ButtonStyle.Primary));
             }
 
-            const response = { embeds: [sEmbed], components: rows, flags: [MessageFlags.Ephemeral] };
-            return interaction.customId === 'open_shop' ? interaction.reply(response) : interaction.update(response);
+            return interaction.customId === 'open_shop' ? interaction.reply({ embeds: [sEmbed], components: rows, flags: [MessageFlags.Ephemeral] }) : interaction.update({ embeds: [sEmbed], components: rows });
         }
 
-        // --- ZAKUPY (NAPRAWIONE BRAKI ODPOWIEDZI) ---
+        // --- ZAKUPY ---
         if (interaction.customId.startsWith('buy_')) {
             const item = interaction.customId.replace('buy_', '');
-            let cost = 0;
-            let col = item;
-
-            if (item === 'zimne') { cost = gameConfig.prices.zimne_ognie; col = 'zimne_ognie'; }
-            else if (item === 'piccolo') { cost = gameConfig.prices.piccolo; }
-            else if (item === 'szampan') { cost = gameConfig.prices.szampan_procenty; }
-            else if (item === 'wyrzutnia') { cost = gameConfig.prices.wyrzutnia_pro; }
-            else if (item === 'dzik') { cost = gameConfig.prices.dzik_prices[data.dzik]; }
-            else if (item === 'brawlpass') { cost = currentBpPrice; }
-
-            // Walidacja środków
+            
             if (item === 'paczka') {
-                if (data.fajerwerki_waluta < gameConfig.prices.paczka_fajerwerek_cost) return interaction.reply({ content: "❌ Nie masz wystarczającej ilości 🎇!", flags: [MessageFlags.Ephemeral] });
-                db.prepare('UPDATE players SET proch=0, multiplier=1, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, total_fajerwerki=0, fajerwerki_waluta=fajerwerki_waluta-?, mega_multiplier=mega_multiplier*10 WHERE userId=?').run(gameConfig.prices.paczka_fajerwerek_cost, userId);
-            } else {
-                if (!cost || data.proch < cost) return interaction.reply({ content: "❌ Nie masz wystarczająco dużo prochu!", flags: [MessageFlags.Ephemeral] });
+                if (data.fajerwerki_waluta < gameConfig.prices.paczka_fajerwerek_cost) return interaction.reply({ content: "❌ Nie masz wystarczająco dużo 🎇!", flags: [MessageFlags.Ephemeral] });
                 
-                if (item === 'brawlpass') {
-                    db.prepare('UPDATE players SET proch = proch - ?, multiplier = multiplier + 5, brawlpass_count = brawlpass_count + 1 WHERE userId = ?').run(cost, userId);
-                } else {
-                    db.prepare(`UPDATE players SET proch = proch - ?, ${col} = ${col} + 1 WHERE userId = ?`).run(cost, userId);
-                }
+                db.prepare('UPDATE players SET proch=0, multiplier=1, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, total_fajerwerki=0, fajerwerki_waluta=fajerwerki_waluta-?, mega_multiplier=mega_multiplier*10 WHERE userId=?').run(gameConfig.prices.paczka_fajerwerek_cost, userId);
+                
+                return interaction.reply({ content: "💥 **Aktywowanie wybuchu wielkiej paczki!** 💥\nTwój mnożnik wzrósł permanentnie **x10**!", flags: [MessageFlags.Ephemeral] });
             }
-            return interaction.reply({ content: `✅ Pomyślnie zakupiono ${item}!`, flags: [MessageFlags.Ephemeral] });
+
+            let cost = 0;
+            let col = item === 'zimne' ? 'zimne_ognie' : item;
+
+            if (item === 'zimne') cost = gameConfig.prices.zimne_ognie;
+            else if (item === 'piccolo') cost = gameConfig.prices.piccolo;
+            else if (item === 'szampan') cost = gameConfig.prices.szampan_procenty;
+            else if (item === 'wyrzutnia') cost = gameConfig.prices.wyrzutnia_pro;
+            else if (item === 'dzik') cost = gameConfig.prices.dzik_prices[data.dzik];
+            else if (item === 'brawlpass') cost = currentBpPrice;
+
+            if (data.proch < cost) return interaction.reply({ content: `❌ Brakuje Ci prochu! (Koszt: ${formatNum(cost)}g)`, flags: [MessageFlags.Ephemeral] });
+
+            if (item === 'brawlpass') {
+                db.prepare('UPDATE players SET proch = proch - ?, multiplier = multiplier + 5, brawlpass_count = brawlpass_count + 1 WHERE userId = ?').run(cost, userId);
+            } else {
+                db.prepare(`UPDATE players SET proch = proch - ?, ${col} = ${col} + 1 WHERE userId = ?`).run(cost, userId);
+            }
+
+            return interaction.reply({ content: `✅ Pomyślnie zakupiono: **${item}**!`, flags: [MessageFlags.Ephemeral] });
         }
 
         // --- KLIKANIE ---
@@ -136,26 +145,37 @@ module.exports = {
             return interaction.update({ embeds: [upEmbed] });
         }
 
-        // --- ODPALANIE FAJERWERKI ---
+        // --- ODPALANIE ---
         if (interaction.customId === 'firework_boom') {
-            if (data.proch < nextPresPrice) return interaction.reply({ content: `❌ Potrzebujesz ${formatNum(nextPresPrice)}g prochu!`, flags: [MessageFlags.Ephemeral] });
+            if (data.proch < nextPresPrice) return interaction.reply({ content: `❌ Brakuje Ci prochu! Potrzebujesz ${formatNum(nextPresPrice)}g.`, flags: [MessageFlags.Ephemeral] });
+            
             db.prepare('UPDATE players SET proch=0, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, total_fajerwerki=total_fajerwerki+1, fajerwerki_waluta=fajerwerki_waluta+1 WHERE userId=?').run(userId);
-            return interaction.reply({ content: "🎆 WYSTRZAŁ! Twój mnożnik x2 rośnie! +1 🎇", flags: [MessageFlags.Ephemeral] });
+            
+            return interaction.reply({ content: "🎆 **BUM!** Fajerwerka wystrzelona! Zyskujesz x2 do mnożnika i 1 🎇.", flags: [MessageFlags.Ephemeral] });
         }
 
-        // --- START GRY ---
+        // --- START GRY (BOGATY WYGLĄD MAGAZYNU) ---
         if (interaction.customId === 'start_game') {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+            
             const ch = await interaction.guild.channels.create({
                 name: `sylwester-${interaction.user.username}`,
+                parent: process.env.CATEGORY_ID || null,
                 permissionOverwrites: [
                     { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
                     { id: userId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
                 ],
             });
 
-            const gEmbed = new EmbedBuilder().setTitle('🥂 Twój Magazyn').setColor(gameConfig.gfx.color)
-                .addFields({ name: '✨ Proch:', value: `${formatNum(data.proch)}g`, inline: true }, { name: '🚀 Mnożnik:', value: `x${curMult.toFixed(1)}`, inline: true }, { name: '🎇 Fajerwerki:', value: `${data.fajerwerki_waluta}`, inline: true });
+            const gEmbed = new EmbedBuilder()
+                .setTitle('🥂 Twój Magazyn')
+                .setImage(gameConfig.gfx.main_gif) // GIF tylko tutaj
+                .setColor(gameConfig.gfx.color)
+                .addFields(
+                    { name: '✨ Proch:', value: `${formatNum(data.proch)}g`, inline: true },
+                    { name: '🚀 Mnożnik:', value: `x${curMult.toFixed(1)}`, inline: true },
+                    { name: '🎇 Fajerwerki:', value: `${data.fajerwerki_waluta}`, inline: true }
+                );
 
             const btns = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('click_proch').setLabel('Zabierz Proch! 🧨').setStyle(ButtonStyle.Success),
@@ -164,7 +184,7 @@ module.exports = {
             );
 
             await ch.send({ embeds: [gEmbed], components: [btns] });
-            return interaction.editReply({ content: `Gotowe: ${ch}` });
+            return interaction.editReply({ content: `Twój magazyn został otwarty: ${ch}` });
         }
     }
 };
