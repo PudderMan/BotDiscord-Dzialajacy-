@@ -1,15 +1,9 @@
 const Database = require('better-sqlite3');
 const path = require('path');
-
-// Połączenie z plikiem bazy danych
 const db = new Database(path.join(__dirname, 'database.sqlite'));
 
-/**
- * Funkcja inicjalizująca strukturę bazy.
- * Sprawdza każdą kolumnę po kolei, aby uniknąć błędów ze screenów.
- */
 function setupDatabase() {
-    // 1. Tworzenie tabeli, jeśli w ogóle nie istnieje
+    // Tworzenie tabeli z pełną strukturą (14 kolumn)
     db.prepare(`
         CREATE TABLE IF NOT EXISTS players (
             userId TEXT PRIMARY KEY,
@@ -24,37 +18,24 @@ function setupDatabase() {
             piccolo INTEGER DEFAULT 0,
             szampan INTEGER DEFAULT 0,
             wyrzutnia INTEGER DEFAULT 0,
-            pudelko INTEGER DEFAULT 0
+            pudelko INTEGER DEFAULT 0,
+            brawlpass_count INTEGER DEFAULT 0
         )
     `).run();
 
-    // 2. Automatyczna naprawa (MIGRACJA) - dodaje kolumny do starej bazy bez kasowania danych
+    // Automatyczne dodawanie brakujących kolumn do istniejącej bazy
     const columnsInTable = db.prepare("PRAGMA table_info(players)").all().map(c => c.name);
-
-    // Lista kolumn, które MUSZĄ być w bazie (naprawia błąd ze screena nr 3)
-    const columnsToVerify = [
+    const required = [
         { name: 'pudelko', type: 'INTEGER DEFAULT 0' },
-        { name: 'mega_multiplier', type: 'REAL DEFAULT 1' },
-        { name: 'fajerwerki_waluta', type: 'INTEGER DEFAULT 0' },
-        { name: 'total_fajerwerki', type: 'INTEGER DEFAULT 0' },
-        { name: 'max_dzik', type: 'INTEGER DEFAULT 1' }
+        { name: 'brawlpass_count', type: 'INTEGER DEFAULT 0' }
     ];
 
-    columnsToVerify.forEach(col => {
+    required.forEach(col => {
         if (!columnsInTable.includes(col.name)) {
-            try {
-                db.prepare(`ALTER TABLE players ADD COLUMN ${col.name} ${col.type}`).run();
-                console.log(`[Baza] Naprawiono brakującą kolumnę: ${col.name}`);
-            } catch (err) {
-                console.error(`[Baza] Nie udało się dodać kolumny ${col.name}:`, err.message);
-            }
+            db.prepare(`ALTER TABLE players ADD COLUMN ${col.name} ${col.type}`).run();
         }
     });
-
-    console.log("[Baza] Struktura sprawdzona i gotowa do gry!");
 }
 
-// Uruchamiamy naprawę przy każdym starcie bota
 setupDatabase();
-
 module.exports = db;
