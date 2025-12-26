@@ -1,30 +1,37 @@
 {
   "gfx": {
     "color": "#FF4500",
-    "main_gif": "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJmZzRyeGZ6ZzRyeGZ6ZzRyeGZ6ZzRyeGZ6ZzRyeGZ6ZzRyeGZ6ZzRyeCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKVUn7iM8FMEU24/giphy.gif"
+    "main_gif": "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJmZzRyeGZ6ZzRyeGZ6ZzRyeGZ6ZzRyeGZ6ZzRyeGZ6ZzRyeGZ6ZzRyeCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKVUn7iM8FMEU24/giphy.gif",
+    "drop_gif": "https://media.tenor.com/7vY6L59W9mYAAAAC/ralph-wiggum-sparkler.gif",
+    "shop_gif": "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbmZ6eGZ6eGZ6eGZ6eGZ6eGZ6eGZ6eGZ6eGZ6eGZ6ZCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o6gb3kkCtZclC7jLq/giphy.gif"
   },
   "prices": {
     "zimne_ognie": 25,
     "piccolo": 150,
     "szampan_procenty": 1200,
     "wyrzutnia_pro": 10000,
-    "prestige_req": 1000000
+    "prestige_base": 100000,
+    "prestige_scaling": 1.5,
+    "dzik_prices": [50000, 75000, 150000, 300000, 500000],
+    "paczka_fajerwerek_cost": 25
   },
   "boosts": {
     "zimne_ognie": 1,
     "piccolo": 5,
     "szampan_procenty": 25,
-    "wyrzutnia_pro": 225,
-    "prestige_multiplier": 2
+    "wyrzutnia_pro": 150,
+    "prestige_multiplier": 2,
+    "paczka_mega_boost": 10,
+    "dzik_val": 1.5,
+    "fw_shop_multiplier": 5
+  },
+  "fw_shop": {
+    "slot_dzik_cost": 5,
+    "multiplier_cost": 3
   },
   "drop": {
     "chance": 0.05,
     "reward": 5000,
     "required_clicks": 1
-  },
-  "dzik": {
-    "price": 50000,
-    "boost": 1.5,
-    "limit": 2
   }
 }
