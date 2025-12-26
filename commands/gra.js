@@ -51,7 +51,6 @@ module.exports = {
                 { name: '🎇 Fajerwerki:', value: `${data.fajerwerki_waluta}`, inline: true }
             );
 
-            // AKTUALIZACJA PRZYCISKU ODPAL (DYNAMICZNA CENA)
             const upRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('click_proch').setLabel('Zabierz Proch! 🧨').setStyle(ButtonStyle.Success),
                 new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary),
@@ -133,14 +132,13 @@ module.exports = {
             }
             if (data.proch < cost) return interaction.reply({ content: "❌ Brak prochu!", flags: [MessageFlags.Ephemeral] });
             db.prepare(`UPDATE players SET proch = proch - ?, ${dbCol} = ${dbCol} + 1 WHERE userId = ?`).run(cost, userId);
-            return interaction.reply({ content: `✅ Kupiono ${item}!`, flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: `✅ Zakupiono ${item}!`, flags: [MessageFlags.Ephemeral] });
         }
 
         if (interaction.customId === 'firework_boom') {
             if (data.proch < nextPresPrice) return interaction.reply({ content: `❌ Wymagane: ${formatNum(nextPresPrice)}`, flags: [MessageFlags.Ephemeral] });
             db.prepare('UPDATE players SET proch=0, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, brawlpass_count=0, total_fajerwerki=total_fajerwerki+1, fajerwerki_waluta=fajerwerki_waluta+1 WHERE userId=?').run(userId);
             
-            // ODSWIEZENIE WIDOKU PO PRESTIZU
             const freshData = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
             const newPrice = gameConfig.prices.prestige_base * Math.pow(gameConfig.prices.prestige_scaling, freshData.total_fajerwerki);
             
@@ -161,6 +159,16 @@ module.exports = {
 
         if (interaction.customId === 'start_game') {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+            // NADAWANIE ROLI Z .env
+            const roleId = process.env.PLAYER_ROLE_ID;
+            if (roleId) {
+                const member = interaction.member;
+                if (member && !member.roles.cache.has(roleId)) {
+                    await member.roles.add(roleId).catch(err => console.log("Błąd nadawania roli: " + err));
+                }
+            }
+
             const ch = await interaction.guild.channels.create({
                 name: `sylwester-${interaction.user.username}`,
                 parent: process.env.CATEGORY_ID || null,
