@@ -86,7 +86,7 @@ module.exports = {
                 const dzPrice = gameConfig.prices.dzik_prices[data.dzik] || "MAX";
                 sEmbed.addFields(
                     { name: `🐗 DZIK (${data.dzik}/${data.max_dzik})`, value: `${dzPrice}g`, inline: true },
-                    { name: `🌵 BrawlStars Pass`, value: `500000g (+500/klik)`, inline: true }
+                    { name: `🌵 BrawlPass`, value: `500000g`, inline: true }
                 );
                 rows[0].addComponents(
                     new ButtonBuilder().setCustomId('shop_p1').setLabel('⬅️ Wstecz').setStyle(ButtonStyle.Primary),
@@ -112,7 +112,12 @@ module.exports = {
                     new ButtonBuilder().setCustomId('buy_fw_mult').setLabel('Kup Boost').setStyle(ButtonStyle.Primary)
                 );
             }
-            return interaction.id && !interaction.message ? await interaction.reply({ embeds: [sEmbed], components: rows, ephemeral: true }) : await interaction.update({ embeds: [sEmbed], components: rows });
+
+            if (interaction.customId === 'open_shop') {
+                return await interaction.reply({ embeds: [sEmbed], components: rows, ephemeral: true });
+            } else {
+                return await interaction.update({ embeds: [sEmbed], components: rows });
+            }
         }
 
         const buy = (price, col, label) => {
