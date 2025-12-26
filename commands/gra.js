@@ -2,62 +2,50 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const db = require('../database.js');
 const gameConfig = require('../config-gry.json');
 
-// Funkcja do formatowania liczb (np. 10000 -> 10k)
-const formatNum = (num) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
-    return num.toFixed(0);
+const formatNum = (n) => {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+    return n.toFixed(0);
 };
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('gra')
-        .setDescription('Zarządzanie grą Sylwester 2025')
+        .setDescription('Sylwester 2025')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addSubcommand(s => s.setName('config')
-            .setDescription('Zarządzaj statystykami gracza')
-            .addStringOption(o => o.setName('typ').setDescription('Waluta').setRequired(true).addChoices({name:'Proch',value:'proch'},{name:'Fajerwerki',value:'fajerwerki_waluta'}))
-            .addUserOption(o => o.setName('gracz').setDescription('Gracz').setRequired(true))
-            .addStringOption(o => o.setName('akcja').setDescription('Dodaj/Zabierz').setRequired(true).addChoices({name:'Dodaj',value:'add'},{name:'Zabierz',value:'rem'}))
-            .addIntegerOption(o => o.setName('ilosc').setDescription('Ilość').setRequired(true)))
-        .addSubcommand(s => s.setName('panel').setDescription('Wyślij panel startowy')),
+            .setDescription('Admin')
+            .addStringOption(o => o.setName('typ').setRequired(true).addChoices({name:'Proch',value:'proch'},{name:'Fajerwerki',value:'fajerwerki_waluta'}))
+            .addUserOption(o => o.setName('gracz').setRequired(true))
+            .addStringOption(o => o.setName('akcja').setRequired(true).addChoices({name:'Dodaj',value:'add'},{name:'Zabierz',value:'rem'}))
+            .addIntegerOption(o => o.setName('ilosc').setRequired(true)))
+        .addSubcommand(s => s.setName('panel').setDescription('Panel startowy')),
 
     async execute(interaction) {
         if (interaction.options.getSubcommand() === 'config') {
-            const typ = interaction.options.getString('typ');
-            const target = interaction.options.getUser('gracz');
-            const val = interaction.options.getInteger('ilosc');
+            const typ = interaction.options.getString('typ'), target = interaction.options.getUser('gracz'), val = interaction.options.getInteger('ilosc');
             const sign = interaction.options.getString('akcja') === 'add' ? '+' : '-';
             db.prepare(`UPDATE players SET ${typ} = ${typ} ${sign} ? WHERE userId = ?`).run(val, target.id);
-            return interaction.reply({ content: `✅ Zmieniono ${typ} dla ${target.username} o ${val}.`, ephemeral: true });
+            return interaction.reply({ content: `✅ Zmieniono ${typ} o ${val}`, ephemeral: true });
         }
-
-        const embed = new EmbedBuilder()
-            .setTitle('🎆 Wielkie Przygotowania do Sylwestra!')
-            .setDescription('Potrzebujemy prochu na największy pokaz fajerwerków!\n\nKliknij przycisk poniżej, aby otrzymać własny kanał!')
-            .setColor(gameConfig.gfx.color);
-
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('start_game').setLabel('Zacznij zbierać proch! 🧨').setStyle(ButtonStyle.Danger)
-        );
-
+        const embed = new EmbedBuilder().setTitle('🎆 Sylwester 2025').setDescription('Zacznij zbierać proch!').setColor(gameConfig.gfx.color);
+        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('start_game').setLabel('Zacznij! 🧨').setStyle(ButtonStyle.Danger));
         await interaction.reply({ embeds: [embed], components: [row] });
     },
 
     async handleInteraction(interaction) {
         const userId = interaction.user.id;
         let data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
-        if (!data) {
-            db.prepare('INSERT INTO players (userId, proch) VALUES (?, 10000)').run(userId);
-            data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
-        }
+        if (!data) { db.prepare('INSERT INTO players (userId, proch) VALUES (?, 10000)').run(userId); data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId); }
 
         const curMult = (data.multiplier + (data.dzik * gameConfig.boosts.dzik_val)) * data.mega_multiplier;
         const nextPresPrice = 100000 * Math.pow(gameConfig.prices.prestige_scaling, data.total_fajerwerki);
 
         if (interaction.customId === 'click_proch') {
-            const gain = (1 + (data.zimne_ognie * gameConfig.boosts.zimne_ognie) + (data.piccolo * gameConfig.boosts.piccolo) + (data.szampan * gameConfig.boosts.szampan_procenty) + (data.wyrzutnia * gameConfig.boosts.wyrzutnia_pro)) * curMult;
-            db.prepare('UPDATE players SET proch = proch + ? WHERE userId = ?').run(gain, userId);
+            const baseGain = (1 + (data.zimne_ognie * gameConfig.boosts.zimne_ognie) + (data.piccolo * gameConfig.boosts.piccolo) + (data.szampan * gameConfig.boosts.szampan_procenty)) * curMult;
+            const finalGain = baseGain + (data.wyrzutnia * gameConfig.boosts.wyrzutnia_pro);
+            
+            db.prepare('UPDATE players SET proch = proch + ? WHERE userId = ?').run(finalGain, userId);
             const fresh = db.prepare('SELECT proch FROM players WHERE userId = ?').get(userId);
             const newEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setFields(
                 { name: '✨ Proch:', value: `${formatNum(fresh.proch)}g`, inline: true },
@@ -69,109 +57,77 @@ module.exports = {
 
         if (interaction.customId === 'open_shop' || interaction.customId.startsWith('shop_p')) {
             let p = interaction.customId === 'open_shop' ? 1 : parseInt(interaction.customId.replace('shop_p', ''));
-            
-            if (p === 2 && data.fajerwerki_waluta < 2) return interaction.reply({ content: "❌ Wymagane min. 2 Fajerwerki!", ephemeral: true });
-            if (p === 3 && data.fajerwerki_waluta < 10) return interaction.reply({ content: "❌ Wymagane min. 10 Fajerwerków!", ephemeral: true });
-            if (p === 4 && data.mega_multiplier <= 1) return interaction.reply({ content: "❌ Wymagana Paczka Fajerwerek!", ephemeral: true });
+            if ((p === 2 && data.fajerwerki_waluta < 2) || (p === 3 && data.fajerwerki_waluta < 10) || (p === 4 && data.mega_multiplier <= 1)) 
+                return interaction.reply({ content: "❌ Brak uprawnień!", ephemeral: true });
 
-            const sEmbed = new EmbedBuilder().setTitle(`🛒 Sklep - Strona ${p}`).setColor('#2ECC71').setDescription(`Proch: **${formatNum(data.proch)}g** | Fajerwerki: **${data.fajerwerki_waluta}**`);
+            const sEmbed = new EmbedBuilder().setTitle(`🛒 Sklep s.${p}`).setColor('#2ECC71').setDescription(`Proch: **${formatNum(data.proch)}g** | Fajerwerki: **${data.fajerwerki_waluta}**`);
             const row = new ActionRowBuilder();
 
             if (p === 1) {
-                sEmbed.addFields(
-                    { name: `🎇 Zimne Ognie (+${gameConfig.boosts.zimne_ognie})`, value: `${formatNum(gameConfig.prices.zimne_ognie)}g`, inline: true },
-                    { name: `🍾 Piccolo (+${gameConfig.boosts.piccolo})`, value: `${formatNum(gameConfig.prices.piccolo)}g`, inline: true },
-                    { name: `🥂 Szampan (+${gameConfig.boosts.szampan_procenty})`, value: `${formatNum(gameConfig.prices.szampan_procenty)}g`, inline: true },
-                    { name: `🚀 Wyrzutnia (+${gameConfig.boosts.wyrzutnia_pro})`, value: `${formatNum(gameConfig.prices.wyrzutnia_pro)}g`, inline: true }
-                );
+                sEmbed.addFields({ name: '🎇 Zimne', value: `${formatNum(gameConfig.prices.zimne_ognie)}g`, inline: true }, { name: '🍾 Piccolo', value: `${formatNum(gameConfig.prices.piccolo)}g`, inline: true }, { name: '🥂 Szampan', value: `${formatNum(gameConfig.prices.szampan_procenty)}g`, inline: true }, { name: '🚀 Wyrzutnia (RAZ)', value: `${formatNum(gameConfig.prices.wyrzutnia_pro)}g`, inline: true });
                 row.addComponents(
-                    new ButtonBuilder().setCustomId('buy_zimne').setLabel('Zimne Ognie').setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder().setCustomId('buy_zimne').setLabel('Zimne').setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId('buy_piccolo').setLabel('Piccolo').setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId('buy_szampan').setLabel('Szampan').setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder().setCustomId('buy_wyrzutnia').setLabel('Wyrzutnia').setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder().setCustomId('buy_wyrzutnia').setLabel('Wyrzutnia').setStyle(ButtonStyle.Secondary).setDisabled(data.wyrzutnia > 0),
                     new ButtonBuilder().setCustomId('shop_p2').setLabel('➡️').setStyle(ButtonStyle.Primary)
                 );
             } else if (p === 2) {
                 const dzPrice = gameConfig.prices.dzik_prices[data.dzik] || 0;
-                sEmbed.addFields(
-                    { name: `🐗 DZIK (x${gameConfig.boosts.dzik_val})`, value: `${formatNum(dzPrice)}g`, inline: true },
-                    { name: `🌵 BrawlPass (+500)`, value: `500k`, inline: true },
-                    { name: `⚡ Megawat (+1.2k)`, value: `1.5M`, inline: true }
-                );
+                sEmbed.addFields({ name: '🐗 Dzik', value: `${formatNum(dzPrice)}g`, inline: true }, { name: '🌵 BrawlPass (∞)', value: `500k`, inline: true });
                 row.addComponents(
                     new ButtonBuilder().setCustomId('shop_p1').setLabel('⬅️').setStyle(ButtonStyle.Primary),
                     new ButtonBuilder().setCustomId('buy_dzik').setLabel('Dzik').setStyle(ButtonStyle.Success),
                     new ButtonBuilder().setCustomId('buy_bs').setLabel('BrawlPass').setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder().setCustomId('buy_mega').setLabel('Megawat').setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId('shop_p3').setLabel('➡️').setStyle(ButtonStyle.Primary)
                 );
             } else if (p === 3) {
-                sEmbed.addFields({ name: '📦 PACZKA FAJERWEREK', value: `Koszt: 25 🎇\nReset wszystkiego, MEGA BOOST x10 i +1 Max Dzik!`, inline: false });
-                row.addComponents(
-                    new ButtonBuilder().setCustomId('shop_p2').setLabel('⬅️').setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder().setCustomId('buy_paczka').setLabel('WYSTRZEL PACZKĘ 🎆').setStyle(ButtonStyle.Danger),
-                    new ButtonBuilder().setCustomId('shop_p4').setLabel('Sklep 🎇').setStyle(ButtonStyle.Success)
-                );
+                sEmbed.addFields({ name: '📦 PACZKA', value: `Koszt: 25 🎇`, inline: false });
+                row.addComponents(new ButtonBuilder().setCustomId('shop_p2').setLabel('⬅️').setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId('buy_paczka').setLabel('WYSTRZEL PACZKĘ 🎆').setStyle(ButtonStyle.Danger), new ButtonBuilder().setCustomId('shop_p4').setLabel('Sklep 🎇').setStyle(ButtonStyle.Success));
             } else if (p === 4) {
-                sEmbed.setTitle('🎇 Sklep Specjalny').addFields(
-                    { name: '🐗 Slot Dzika', value: `5 🎇`, inline: true },
-                    { name: '🚀 Mega Boost x5', value: `3 🎇`, inline: true }
-                );
-                row.addComponents(
-                    new ButtonBuilder().setCustomId('shop_p3').setLabel('⬅️').setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder().setCustomId('buy_fw_slot').setLabel('Kup Slot').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId('buy_fw_mult').setLabel('Kup Boost').setStyle(ButtonStyle.Primary)
-                );
+                sEmbed.addFields({ name: '🐗 Slot', value: `5 🎇`, inline: true }, { name: '🚀 Boost x5', value: `3 🎇`, inline: true });
+                row.addComponents(new ButtonBuilder().setCustomId('shop_p3').setLabel('⬅️').setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId('buy_fw_slot').setLabel('Slot').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId('buy_fw_mult').setLabel('Boost').setStyle(ButtonStyle.Primary));
             }
-
-            if (interaction.customId === 'open_shop') {
-                return await interaction.reply({ embeds: [sEmbed], components: [row], ephemeral: true });
-            } else {
-                return await interaction.update({ embeds: [sEmbed], components: [row] });
-            }
+            return interaction.customId === 'open_shop' ? interaction.reply({ embeds: [sEmbed], components: [row], ephemeral: true }) : interaction.update({ embeds: [sEmbed], components: [row] });
         }
 
-        const buyAction = (price, col, label) => {
+        const buy = (price, col, label, max = 999) => {
             if (data.proch < price) return interaction.reply({ content: "Brak prochu!", ephemeral: true });
+            if (data[col] >= max) return interaction.reply({ content: "Limit!", ephemeral: true });
             db.prepare(`UPDATE players SET proch = proch - ?, ${col} = ${col} + 1 WHERE userId = ?`).run(price, userId);
-            interaction.reply({ content: `✅ Kupiono: ${label}!`, ephemeral: true });
+            interaction.reply({ content: `✅ Kupiono: ${label}`, ephemeral: true });
         };
 
-        if (interaction.customId === 'buy_zimne') buyAction(gameConfig.prices.zimne_ognie, 'zimne_ognie', 'Zimne Ognie');
-        if (interaction.customId === 'buy_piccolo') buyAction(gameConfig.prices.piccolo, 'piccolo', 'Piccolo');
-        if (interaction.customId === 'buy_szampan') buyAction(gameConfig.prices.szampan_procenty, 'szampan', 'Szampan');
-        if (interaction.customId === 'buy_wyrzutnia') buyAction(gameConfig.prices.wyrzutnia_pro, 'wyrzutnia', 'Wyrzutnie');
-        if (interaction.customId === 'buy_bs') buyAction(500000, 'wyrzutnia', 'BrawlPass');
-        if (interaction.customId === 'buy_mega') buyAction(1500000, 'wyrzutnia', 'Megawat');
+        if (interaction.customId === 'buy_zimne') buy(gameConfig.prices.zimne_ognie, 'zimne_ognie', 'Zimne');
+        if (interaction.customId === 'buy_piccolo') buy(gameConfig.prices.piccolo, 'piccolo', 'Piccolo');
+        if (interaction.customId === 'buy_szampan') buy(gameConfig.prices.szampan_procenty, 'szampan', 'Szampan');
+        if (interaction.customId === 'buy_wyrzutnia') buy(gameConfig.prices.wyrzutnia_pro, 'wyrzutnia', 'Wyrzutnię', 1);
+        if (interaction.customId === 'buy_bs') buy(500000, 'wyrzutnia', 'BrawlPass');
         
         if (interaction.customId === 'buy_dzik') {
             const price = gameConfig.prices.dzik_prices[data.dzik];
-            if (!price || data.dzik >= data.max_dzik) return interaction.reply({ content: "Limit!", ephemeral: true });
-            buyAction(price, 'dzik', 'Dzika');
+            if (price && data.dzik < data.max_dzik) buy(price, 'dzik', 'Dzika');
+            else interaction.reply({ content: "Limit!", ephemeral: true });
         }
 
-        if (interaction.customId === 'buy_fw_slot') {
-            if (data.fajerwerki_waluta < 5) return interaction.reply({ content: "Brak 🎇", ephemeral: true });
+        if (interaction.customId === 'buy_fw_slot' && data.fajerwerki_waluta >= 5) {
             db.prepare('UPDATE players SET fajerwerki_waluta = fajerwerki_waluta - 5, max_dzik = max_dzik + 1 WHERE userId = ?').run(userId);
-            interaction.reply({ content: "✅ Slot dodany!", ephemeral: true });
+            interaction.reply({ content: "✅ Slot dodany", ephemeral: true });
         }
 
-        if (interaction.customId === 'buy_fw_mult') {
-            if (data.fajerwerki_waluta < 3) return interaction.reply({ content: "Brak 🎇", ephemeral: true });
+        if (interaction.customId === 'buy_fw_mult' && data.fajerwerki_waluta >= 3) {
             db.prepare('UPDATE players SET fajerwerki_waluta = fajerwerki_waluta - 3, mega_multiplier = mega_multiplier * 5 WHERE userId = ?').run(userId);
-            interaction.reply({ content: "🚀 Boost x5!", ephemeral: true });
+            interaction.reply({ content: "🚀 Boost x5", ephemeral: true });
         }
 
-        if (interaction.customId === 'firework_boom') {
-            if (data.proch < nextPresPrice) return interaction.reply({ content: `Brak prochu! Wymagane: ${formatNum(nextPresPrice)}`, ephemeral: true });
+        if (interaction.customId === 'firework_boom' && data.proch >= nextPresPrice) {
             db.prepare(`UPDATE players SET proch=0, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, total_fajerwerki=total_fajerwerki+1, fajerwerki_waluta=fajerwerki_waluta+1, multiplier=multiplier*2 WHERE userId=?`).run(userId);
-            interaction.reply({ content: "🎆 +1 Fajerwerk!", ephemeral: true });
+            interaction.reply({ content: "🎆 +1 Fajerwerk", ephemeral: true });
         }
 
-        if (interaction.customId === 'buy_paczka') {
-            if (data.fajerwerki_waluta < 25) return interaction.reply({ content: "Brak 25 🎇", ephemeral: true });
+        if (interaction.customId === 'buy_paczka' && data.fajerwerki_waluta >= 25) {
             db.prepare(`UPDATE players SET proch=10000, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, total_fajerwerki=0, fajerwerki_waluta=0, multiplier=1, max_dzik=max_dzik+1, mega_multiplier=mega_multiplier*10 WHERE userId=?`).run(userId);
-            interaction.reply({ content: "🚀 PACZKA WYSTRZELONA!" });
+            interaction.reply({ content: "🚀 PACZKA WYSTRZELONA" });
         }
 
         if (interaction.customId === 'start_game') {
@@ -179,16 +135,12 @@ module.exports = {
             const ch = await interaction.guild.channels.create({
                 name: `sylwester-${interaction.user.username}`,
                 parent: process.env.CATEGORY_ID,
-                permissionOverwrites: [{ id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] }, { id: userId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }],
+                permissionOverwrites: [{ id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] }, { id: userId, allow: [PermissionFlagsBits.ViewChannel] }],
             });
-            const gEmbed = new EmbedBuilder().setTitle('🥂 Twój Sylwestrowy Magazyn').setImage(gameConfig.gfx.main_gif).setColor(gameConfig.gfx.color)
+            const gEmbed = new EmbedBuilder().setTitle('🥂 Magazyn').setImage(gameConfig.gfx.main_gif).setColor(gameConfig.gfx.color)
                 .addFields({ name: '✨ Proch:', value: `${formatNum(data.proch)}g`, inline: true }, { name: '🚀 Mnożnik:', value: `x${curMult.toFixed(1)}`, inline: true }, { name: '🎇 Fajerwerki:', value: `${data.fajerwerki_waluta}`, inline: true });
-            const btns = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('click_proch').setLabel('Klikaj! 🧨').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatNum(nextPresPrice)})`).setStyle(ButtonStyle.Danger)
-            );
-            await ch.send({ content: `Witaj ${interaction.user}!`, embeds: [gEmbed], components: [btns] });
+            const btns = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('click_proch').setLabel('Klikaj! 🧨').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatNum(nextPresPrice)})`).setStyle(ButtonStyle.Danger));
+            await ch.send({ embeds: [gEmbed], components: [btns] });
             return interaction.editReply({ content: `Kanał: ${ch}` });
         }
     }
