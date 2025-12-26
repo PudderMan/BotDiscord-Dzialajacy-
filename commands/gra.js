@@ -54,7 +54,6 @@ module.exports = {
         if (interaction.customId === 'open_shop' || interaction.customId.startsWith('shop_p')) {
             let page = 1;
             if (interaction.customId.startsWith('shop_p')) page = parseInt(interaction.customId.replace('shop_p', '')) || 1;
-
             const sEmbed = new EmbedBuilder().setTitle(`🛒 Sklep - Strona ${page}`).setColor('#2ECC71').setDescription(`Proch: **${formatNum(data.proch)}**`);
             const rows = [];
             const row1 = new ActionRowBuilder();
@@ -92,7 +91,7 @@ module.exports = {
                 rows.push(row1, row2);
             } else if (page === 3) {
                 const hasPaczka = data.mega_multiplier > 1;
-                sEmbed.addFields({ name: '📦 WIELKA PACZKA', value: hasPaczka ? "✅ ZAKUPIONO" : `Koszt: ${gameConfig.prices.paczka_fajerwerek_cost} 🎇\nRESETUJE WSZYSTKO (w tym Prestiże)` });
+                sEmbed.addFields({ name: '📦 WIELKA PACZKA', value: hasPaczka ? "✅ ZAKUPIONO" : `Koszt: ${gameConfig.prices.paczka_fajerwerek_cost} 🎇\nRESETUJE WSZYSTKO BEZ WYJĄTKÓW` });
                 row1.addComponents(new ButtonBuilder().setCustomId('buy_paczka').setLabel(hasPaczka ? 'WYKORZYSTANO' : 'ODPAL PACZKĘ 🎆').setStyle(ButtonStyle.Danger).setDisabled(hasPaczka));
                 row2.addComponents(new ButtonBuilder().setCustomId('shop_p2').setLabel('⬅️ Strona 2').setStyle(ButtonStyle.Primary));
                 rows.push(row1, row2);
@@ -103,15 +102,13 @@ module.exports = {
 
         if (interaction.customId.startsWith('buy_')) {
             const item = interaction.customId.replace('buy_', '');
-            let cost = 0, dbCol = "";
-
             if (item === 'paczka') {
                 if (data.mega_multiplier > 1) return interaction.reply({ content: "❌ Paczka jest jednorazowa!", flags: [MessageFlags.Ephemeral] });
                 if (data.fajerwerki_waluta < gameConfig.prices.paczka_fajerwerek_cost) return interaction.reply({ content: "❌ Brak 🎇!", flags: [MessageFlags.Ephemeral] });
-                db.prepare(`UPDATE players SET proch=0, multiplier=1, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, brawlpass_count=0, total_fajerwerki=0, fajerwerki_waluta=fajerwerki_waluta-?, mega_multiplier=10 WHERE userId=?`).run(gameConfig.prices.paczka_fajerwerek_cost, userId);
-                return interaction.reply({ content: "💥 NUKLEARNY RESET! Otrzymałeś stały x10!", flags: [MessageFlags.Ephemeral] });
+                db.prepare(`UPDATE players SET proch=0, multiplier=1, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, brawlpass_count=0, total_fajerwerki=0, fajerwerki_waluta=0, mega_multiplier=10 WHERE userId=?`).run(userId);
+                return interaction.reply({ content: "💥 TOTALNY RESET! Wszystko wyzerowane, otrzymałeś x10!", flags: [MessageFlags.Ephemeral] });
             }
-
+            let cost = 0, dbCol = "";
             if (item === 'brawlpass') {
                 if (data.brawlpass_count >= gameConfig.boosts.brawlpass_limit) return interaction.reply({ content: "❌ Limit BP!", flags: [MessageFlags.Ephemeral] });
                 cost = currentBpPrice; dbCol = 'brawlpass_count';
@@ -124,7 +121,6 @@ module.exports = {
                 const pMap = { zimne: 'zimne_ognie', piccolo: 'piccolo', szampan: 'szampan_procenty', wyrzutnia: 'wyrzutnia_pro' };
                 dbCol = map[item]; cost = gameConfig.prices[pMap[item]];
             }
-
             if (data.proch < cost) return interaction.reply({ content: "❌ Brak prochu!", flags: [MessageFlags.Ephemeral] });
             db.prepare(`UPDATE players SET proch = proch - ?, ${dbCol} = ${dbCol} + 1 WHERE userId = ?`).run(cost, userId);
             return interaction.reply({ content: `✅ Kupiono ${item}!`, flags: [MessageFlags.Ephemeral] });
@@ -133,7 +129,7 @@ module.exports = {
         if (interaction.customId === 'firework_boom') {
             if (data.proch < nextPresPrice) return interaction.reply({ content: `❌ Wymagane: ${formatNum(nextPresPrice)}`, flags: [MessageFlags.Ephemeral] });
             db.prepare('UPDATE players SET proch=0, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, brawlpass_count=0, total_fajerwerki=total_fajerwerki+1, fajerwerki_waluta=fajerwerki_waluta+1 WHERE userId=?').run(userId);
-            return interaction.reply({ content: "🎆 BUM! Prestiż zdobyty, mnożnik i limity zresetowane!", flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: "🎆 BUM! Prestiż zdobyty!", flags: [MessageFlags.Ephemeral] });
         }
 
         if (interaction.customId === 'start_game') {
