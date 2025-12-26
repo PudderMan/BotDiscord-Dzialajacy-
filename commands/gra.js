@@ -62,8 +62,9 @@ module.exports = {
 
         if (interaction.customId === 'open_shop' || interaction.customId.startsWith('shop_p')) {
             let p = interaction.customId === 'open_shop' ? 1 : parseInt(interaction.customId.replace('shop_p', ''));
-            if (p === 2 && data.total_fajerwerki < 2) return interaction.reply({ content: "❌ Wymagane min. 2 wystrzały!", ephemeral: true });
-            if (p === 3 && data.total_fajerwerki < 10) return interaction.reply({ content: "❌ Wymagane min. 10 wystrzałów!", ephemeral: true });
+            
+            if (p === 2 && data.fajerwerki_waluta < 2) return interaction.reply({ content: "❌ Wymagane min. 2 Fajerwerki w portfelu!", ephemeral: true });
+            if (p === 3 && data.fajerwerki_waluta < 10) return interaction.reply({ content: "❌ Wymagane min. 10 Fajerwerków w portfelu!", ephemeral: true });
             if (p === 4 && data.mega_multiplier <= 1) return interaction.reply({ content: "❌ Wymagana Paczka Fajerwerek!", ephemeral: true });
 
             const sEmbed = new EmbedBuilder().setTitle(`🛒 Sklep - Strona ${p}`).setColor('#2ECC71').setDescription(`Proch: **${data.proch.toFixed(0)}g** | Fajerwerki: **${data.fajerwerki_waluta}**`);
