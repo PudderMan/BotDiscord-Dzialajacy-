@@ -4,19 +4,19 @@
     "main_gif": "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWVpdDBwcGYzNjI5MmdwaDlwdGptNHI3ZnptNWliOTY2bHFyM24yOCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/c1R3XcUXVWAFy/giphy.gif"
   },
   "prices": {
-    "zimne_ognie": 100,
+    "zimne_ognie": 50,
     "piccolo": 500,
     "szampan_procenty": 2500,
     "wyrzutnia_pro": 10000,
-    "dzik_prices": [50000, 150000, 500000, 1000000, 5000000],
-    "prestige_base": 1000000,
+    "dzik_prices": [50000, 75000, 125000, 250000, 500000],
+    "prestige_base": 100000,
     "prestige_scaling": 2.5,
     "brawlpass_base": 500000,
     "brawlpass_scaling": 2.0,
     "paczka_fajerwerek_cost": 10
   },
   "boosts": {
-    "zimne_ognie": 2,
+    "zimne_ognie": 1,
     "piccolo": 10,
     "szampan_procenty": 50,
     "wyrzutnia_pro": 250,
