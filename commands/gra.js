@@ -16,16 +16,13 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addSubcommand(sub =>
             sub.setName('config')
-                .setDescription('Zarządzanie statystykami graczy')
+                .setDescription('Zarządzanie statystykami')
                 .addStringOption(o => o.setName('typ').setDescription('Waluta').setRequired(true).addChoices({ name: 'Proch', value: 'proch' }, { name: 'Fajerwerki', value: 'fajerwerki_waluta' }))
                 .addUserOption(o => o.setName('gracz').setDescription('Użytkownik').setRequired(true))
                 .addStringOption(o => o.setName('akcja').setDescription('Akcja').setRequired(true).addChoices({ name: 'Dodaj', value: 'add' }, { name: 'Zabierz', value: 'rem' }))
                 .addIntegerOption(o => o.setName('ilosc').setDescription('Ilość').setRequired(true))
         )
-        .addSubcommand(sub =>
-            sub.setName('panel')
-                .setDescription('Wysyła panel startowy gry')
-        ),
+        .addSubcommand(sub => sub.setName('panel').setDescription('Wysyła panel startowy')),
 
     async execute(interaction) {
         if (interaction.options.getSubcommand() === 'config') {
@@ -33,27 +30,16 @@ module.exports = {
             const target = interaction.options.getUser('gracz');
             const val = interaction.options.getInteger('ilosc');
             const sign = interaction.options.getString('akcja') === 'add' ? '+' : '-';
-
             db.prepare(`UPDATE players SET ${typ} = ${typ} ${sign} ? WHERE userId = ?`).run(val, target.id);
-            return interaction.reply({ content: `✅ Zmieniono ${typ} o ${val}.`, ephemeral: true });
+            return interaction.reply({ content: `✅ Zaktualizowano pomyślnie.`, ephemeral: true });
         }
-
-        const embed = new EmbedBuilder()
-            .setTitle('🎆 Sylwester 2025')
-            .setDescription('Stwórz swój magazyn i zacznij zbierać proch!')
-            .setColor(gameConfig.gfx.color);
-
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('start_game').setLabel('Zacznij Przygodę! 🧨').setStyle(ButtonStyle.Danger)
-        );
-
+        const embed = new EmbedBuilder().setTitle('🎆 Sylwester 2025').setDescription('Kliknij przycisk, aby otworzyć magazyn!').setColor(gameConfig.gfx.color);
+        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('start_game').setLabel('Zacznij Przygodę! 🧨').setStyle(ButtonStyle.Danger));
         await interaction.reply({ embeds: [embed], components: [row] });
     },
 
     async handleInteraction(interaction) {
         const userId = interaction.user.id;
-        
-        // Zawsze pobieraj najświeższe dane na początku interakcji
         let data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
 
         if (!data) {
@@ -61,86 +47,73 @@ module.exports = {
             data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
         }
 
-        // Kalkulacja mnożnika
         const curMult = (Number(data.multiplier) + (Number(data.dzik) * gameConfig.boosts.dzik_val)) * Number(data.mega_multiplier);
         const nextPresPrice = gameConfig.prices.prestige_base * Math.pow(gameConfig.prices.prestige_scaling, data.total_fajerwerki);
 
-        // --- PRZYCISK KLIKANIA ---
+        // --- KLIKANIE ---
         if (interaction.customId === 'click_proch') {
-            const gain = (1 + 
-                (data.zimne_ognie * gameConfig.boosts.zimne_ognie) + 
-                (data.piccolo * gameConfig.boosts.piccolo) + 
-                (data.szampan * gameConfig.boosts.szampan_procenty) + 
-                (data.wyrzutnia * gameConfig.boosts.wyrzutnia_pro)
-            ) * curMult;
+            const base = 1 + 
+                (Number(data.zimne_ognie) * gameConfig.boosts.zimne_ognie) + 
+                (Number(data.piccolo) * gameConfig.boosts.piccolo) + 
+                (Number(data.szampan) * gameConfig.boosts.szampan_procenty) + 
+                (Number(data.wyrzutnia) * gameConfig.boosts.wyrzutnia_pro);
             
-            db.prepare('UPDATE players SET proch = proch + ? WHERE userId = ?').run(gain, userId);
+            const totalGain = base * curMult;
             
-            // Pobieramy dane PO dodaniu prochu
-            const updated = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
+            db.prepare('UPDATE players SET proch = proch + ? WHERE userId = ?').run(totalGain, userId);
+            const fresh = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
 
             const newEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setFields(
-                { name: '✨ Proch:', value: `${formatNum(updated.proch)}g`, inline: true },
+                { name: '✨ Proch:', value: `${formatNum(fresh.proch)}g`, inline: true },
                 { name: '🚀 Mnożnik:', value: `x${curMult.toFixed(1)}`, inline: true },
-                { name: '🎇 Fajerwerki:', value: `${updated.fajerwerki_waluta}`, inline: true }
+                { name: '🎇 Fajerwerki:', value: `${fresh.fajerwerki_waluta}`, inline: true }
             );
-
             return interaction.update({ embeds: [newEmbed] });
         }
 
-        // --- SKLEP ---
+        // --- SKLEP (NAPRAWIONA NAWIGACJA) ---
         if (interaction.customId === 'open_shop' || interaction.customId.startsWith('shop_p')) {
-            let p = interaction.customId === 'open_shop' ? 1 : parseInt(interaction.customId.replace('shop_p', ''));
-            const sEmbed = new EmbedBuilder().setTitle(`🛒 Sklep s.${p}`).setColor('#2ECC71').setDescription(`Proch: **${formatNum(data.proch)}g** | 🎇: **${data.fajerwerki_waluta}**`);
-            const row = new ActionRowBuilder();
+            const page = interaction.customId === 'open_shop' ? 1 : parseInt(interaction.customId.replace('shop_p', ''));
+            const sEmbed = new EmbedBuilder().setTitle(`🛒 Sklep - Strona ${page}`).setColor('#2ECC71')
+                .setDescription(`Proch: **${formatNum(data.proch)}g** | 🎇: **${data.fajerwerki_waluta}**`);
+            
+            const newRow = new ActionRowBuilder();
 
-            if (p === 1) {
+            if (page === 1) {
                 sEmbed.addFields(
                     { name: `🎇 Zimne (+${gameConfig.boosts.zimne_ognie})`, value: `${formatNum(gameConfig.prices.zimne_ognie)}g`, inline: true },
                     { name: `🍾 Piccolo (+${gameConfig.boosts.piccolo})`, value: `${formatNum(gameConfig.prices.piccolo)}g`, inline: true },
                     { name: `🥂 Szampan (+${gameConfig.boosts.szampan_procenty})`, value: `${formatNum(gameConfig.prices.szampan_procenty)}g`, inline: true },
                     { name: `🚀 Wyrzutnia (+${gameConfig.boosts.wyrzutnia_pro})`, value: `${formatNum(gameConfig.prices.wyrzutnia_pro)}g`, inline: true }
                 );
-                
-                row.addComponents(
+                newRow.addComponents(
                     new ButtonBuilder().setCustomId('buy_zimne').setLabel('Zimne').setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId('buy_piccolo').setLabel('Piccolo').setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId('buy_szampan').setLabel('Szampan').setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId('buy_wyrzutnia').setLabel('Wyrzutnia').setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId('shop_p2').setLabel('➡️').setStyle(ButtonStyle.Primary)
                 );
-            } else if (p === 3) {
-                sEmbed.addFields({ name: '📦 PACZKA FAJERWEREK', value: `Koszt: ${gameConfig.prices.paczka_fajerwerek_cost} 🎇\n\n**Efekt:**\n- Mega Boost x10 (na stałe)\n- Czyści postęp (oprócz 🎇)` });
-                row.addComponents(
+            } else if (page === 2) {
+                const dzikCost = gameConfig.prices.dzik_prices[data.dzik] || "MAX";
+                sEmbed.addFields({ name: `🐗 Dzik (+${gameConfig.boosts.dzik_val})`, value: `Koszt: ${formatNum(dzikCost)}g` });
+                newRow.addComponents(
+                    new ButtonBuilder().setCustomId('shop_p1').setLabel('⬅️').setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder().setCustomId('buy_dzik').setLabel('Kup Dzika').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId('shop_p3').setLabel('➡️').setStyle(ButtonStyle.Primary)
+                );
+            } else if (page === 3) {
+                sEmbed.addFields({ name: '📦 PACZKA FAJERWEREK', value: `Koszt: ${gameConfig.prices.paczka_fajerwerek_cost} 🎇\n\n- Mega Boost x10\n- Resetuje postęp` });
+                newRow.addComponents(
                     new ButtonBuilder().setCustomId('shop_p2').setLabel('⬅️').setStyle(ButtonStyle.Primary),
                     new ButtonBuilder().setCustomId('buy_paczka').setLabel('ODPAL PACZKĘ 🎆').setStyle(ButtonStyle.Danger)
                 );
             }
 
-            return interaction.customId === 'open_shop' 
-                ? await interaction.reply({ embeds: [sEmbed], components: [row], ephemeral: true }) 
-                : await interaction.update({ embeds: [sEmbed], components: [row] });
+            const payload = { embeds: [sEmbed], components: [newRow] };
+            return (interaction.customId === 'open_shop') ? interaction.reply({ ...payload, ephemeral: true }) : interaction.update(payload);
         }
 
-        // --- PACZKA (RESET) ---
-        if (interaction.customId === 'buy_paczka') {
-            if (data.fajerwerki_waluta < gameConfig.prices.paczka_fajerwerek_cost) return interaction.reply({ content: "❌ Za mało 🎇!", ephemeral: true });
-            
-            db.prepare(`UPDATE players SET proch=0, multiplier=1, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, total_fajerwerki=0, fajerwerki_waluta = fajerwerki_waluta - ?, mega_multiplier=10 WHERE userId=?`)
-              .run(gameConfig.prices.paczka_fajerwerek_cost, userId);
-            
-            return interaction.reply({ content: "🚀 PACZKA ODPALONA! Zyskałeś Mega Boost x10 i zresetowałeś postęp.", ephemeral: false });
-        }
-
-        // --- WYSTRZAŁ (PRESTIGE) ---
-        if (interaction.customId === 'firework_boom') {
-            if (data.proch < nextPresPrice) return interaction.reply({ content: `❌ Brakuje Ci prochu! (Wymagane: ${formatNum(nextPresPrice)})`, ephemeral: true });
-
-            db.prepare(`UPDATE players SET proch=0, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, total_fajerwerki=total_fajerwerki+1, fajerwerki_waluta=fajerwerki_waluta+1 WHERE userId=?`).run(userId);
-            return interaction.reply({ content: "🎆 WYSTRZELONO! Masz nową Fajerwerkę.", ephemeral: true });
-        }
-
-        // --- START GRY ---
+        // --- START ---
         if (interaction.customId === 'start_game') {
             await interaction.deferReply({ ephemeral: true });
             const ch = await interaction.guild.channels.create({
@@ -152,10 +125,7 @@ module.exports = {
                 ],
             });
 
-            const gEmbed = new EmbedBuilder()
-                .setTitle('🥂 Twój Magazyn')
-                .setImage(gameConfig.gfx.main_gif)
-                .setColor(gameConfig.gfx.color)
+            const gEmbed = new EmbedBuilder().setTitle('🥂 Magazyn').setImage(gameConfig.gfx.main_gif).setColor(gameConfig.gfx.color)
                 .addFields(
                     { name: '✨ Proch:', value: `${formatNum(data.proch)}g`, inline: true },
                     { name: '🚀 Mnożnik:', value: `x${curMult.toFixed(1)}`, inline: true },
@@ -169,7 +139,7 @@ module.exports = {
             );
 
             await ch.send({ content: `Witaj ${interaction.user}!`, embeds: [gEmbed], components: [btns] });
-            return interaction.editReply({ content: `Kanał gotowy: ${ch}` });
+            return interaction.editReply({ content: `Kanał: ${ch}` });
         }
     }
 };
