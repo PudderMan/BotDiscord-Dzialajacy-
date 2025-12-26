@@ -1,15 +1,15 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-// Połączenie z bazą danych
+// Połączenie z plikiem bazy danych
 const db = new Database(path.join(__dirname, 'database.sqlite'));
 
 /**
- * Inicjalizacja bazy danych
- * Tworzy tabelę jeśli nie istnieje i sprawdza czy są wszystkie kolumny.
+ * Funkcja inicjalizująca strukturę bazy.
+ * Sprawdza każdą kolumnę po kolei, aby uniknąć błędów ze screenów.
  */
-function initDatabase() {
-    // 1. Tworzenie podstawowej tabeli
+function setupDatabase() {
+    // 1. Tworzenie tabeli, jeśli w ogóle nie istnieje
     db.prepare(`
         CREATE TABLE IF NOT EXISTS players (
             userId TEXT PRIMARY KEY,
@@ -28,32 +28,33 @@ function initDatabase() {
         )
     `).run();
 
-    // 2. Automatyczna migracja (dodawanie kolumn, jeśli ich brakuje w starej bazie)
-    const tableInfo = db.prepare("PRAGMA table_info(players)").all();
-    const columns = tableInfo.map(col => col.name);
+    // 2. Automatyczna naprawa (MIGRACJA) - dodaje kolumny do starej bazy bez kasowania danych
+    const columnsInTable = db.prepare("PRAGMA table_info(players)").all().map(c => c.name);
 
-    const requiredColumns = [
+    // Lista kolumn, które MUSZĄ być w bazie (naprawia błąd ze screena nr 3)
+    const columnsToVerify = [
         { name: 'pudelko', type: 'INTEGER DEFAULT 0' },
         { name: 'mega_multiplier', type: 'REAL DEFAULT 1' },
         { name: 'fajerwerki_waluta', type: 'INTEGER DEFAULT 0' },
-        { name: 'total_fajerwerki', type: 'INTEGER DEFAULT 0' }
+        { name: 'total_fajerwerki', type: 'INTEGER DEFAULT 0' },
+        { name: 'max_dzik', type: 'INTEGER DEFAULT 1' }
     ];
 
-    requiredColumns.forEach(col => {
-        if (!columns.includes(col.name)) {
+    columnsToVerify.forEach(col => {
+        if (!columnsInTable.includes(col.name)) {
             try {
                 db.prepare(`ALTER TABLE players ADD COLUMN ${col.name} ${col.type}`).run();
-                console.log(`[Database] Dodano brakującą kolumnę: ${col.name}`);
+                console.log(`[Baza] Naprawiono brakującą kolumnę: ${col.name}`);
             } catch (err) {
-                console.error(`[Database] Błąd podczas dodawania kolumny ${col.name}:`, err.message);
+                console.error(`[Baza] Nie udało się dodać kolumny ${col.name}:`, err.message);
             }
         }
     });
 
-    console.log("[Database] Baza danych jest gotowa i zaktualizowana.");
+    console.log("[Baza] Struktura sprawdzona i gotowa do gry!");
 }
 
-// Uruchomienie inicjalizacji
-initDatabase();
+// Uruchamiamy naprawę przy każdym starcie bota
+setupDatabase();
 
 module.exports = db;
