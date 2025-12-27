@@ -1,8 +1,17 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ComponentType } = require('discord.js');
 const fs = require('fs');
+const path = require('path');
 
-const loadConfig = () => JSON.parse(fs.readFileSync('./configpytan.json', 'utf8'));
-
+// Funkcja bezpiecznie ładująca konfigurację
+const loadConfig = () => {
+    try {
+        const filePath = path.join(__dirname, 'configpytan.json');
+        return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (err) {
+        console.error("❌ BŁĄD: Nie można odczytać pliku configpytan.json!", err);
+        return null; // Zwraca null, aby zapobiec crashowi bota
+    }
+};
 module.exports = {
     init(client) {
         console.log("✅ System Eventów (16-20) Aktywny. Nagrody przyznawane RĘCZNIE.");

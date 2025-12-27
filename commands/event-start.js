@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const eventSystem = require('./events-system.js'); // upewnij się, że ścieżka jest poprawna
+// Zakładając, że events-system.js jest w głównym folderze, a ta komenda w /commands/
+const eventSystem = require('../events-system.js'); 
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -8,7 +9,12 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
-        await eventSystem.triggerEvent(interaction.client);
-        await interaction.reply({ content: '✅ Event został uruchomiony!', ephemeral: true });
+        // Używamy interaction.client, żeby przekazać bota do systemu eventów
+        await eventSystem.triggerManual(interaction.client);
+        
+        await interaction.reply({ 
+            content: '✅ Pytanie eventowe zostało wysłane na kanał ogłoszeń!', 
+            ephemeral: true 
+        });
     },
 };
