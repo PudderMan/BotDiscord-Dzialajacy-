@@ -2,6 +2,8 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { loadCommands } = require('./command-loader.js');
 const gra = require('./commands/gra.js');
+// DODANO: Import systemu eventów
+const eventSystem = require('./commands/events-system.js'); 
 
 const client = new Client({ 
     intents: [
@@ -26,13 +28,19 @@ client.on('interactionCreate', async interaction => {
             await command.execute(interaction);
         }
 
-        // 2. OBSŁUGA PRZYCISKÓW (Logika gry, Sklepu, Zrzutów)
+        // 2. OBSŁUGA PRZYCISKÓW
         if (interaction.isButton()) {
             // Przekazujemy interakcję do modułu gry
             if (gra && gra.handleInteraction) {
                 await gra.handleInteraction(interaction);
-            } else {
-                console.error("❌ Moduł gry nie został poprawnie załadowany!");
+            } 
+            
+            // DODANO: Obsługa przycisków eventowych (np. "Zgłoś się!")
+            // Jeśli przycisk należy do eventu, system go obsłuży
+            if (interaction.customId.startsWith('event_join_')) {
+                const kategoria = interaction.customId.replace('event_join_', '');
+                await interaction.deferReply({ ephemeral: true });
+                await eventSystem.createPrivateQuestion(interaction, kategoria);
             }
         }
     } catch (error) {
@@ -52,4 +60,7 @@ client.login(process.env.DISCORD_TOKEN).then(() => {
     📅 Gotowy na odliczanie do 2026!
     ====================================
     `);
+
+    // DODANO: Uruchomienie pętli czasowej eventów (16:00 - 20:00)
+    eventSystem.init(client);
 });
