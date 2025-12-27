@@ -3,26 +3,31 @@ const db = require('../database.js');
 const gameConfig = require('../config-gry.json');
 
 // FORMATOWANIE PROCHU (z jednostką g/kg)
+// FORMATOWANIE PROCHU (g, kg, M, b, t, k)
 const formatProch = (n) => {
     let num = Number(n);
     if (isNaN(num)) return "0g";
-    if (num >= 1e15) return (num / 1e15).toFixed(2) + 'k';
-    if (num >= 1e12) return (num / 1e12).toFixed(2) + 't';
-    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'b';
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'kg';
-    return Math.floor(num).toString() + 'g';
+
+    if (num >= 1e15) return (num / 1e15).toFixed(2) + 'k';      // Kwadryliony
+    if (num >= 1e12) return (num / 1e12).toFixed(2) + 't';      // Biliony
+    if (num >= 1e9)  return (num / 1e9).toFixed(2) + 'b';       // Miliardy
+    if (num >= 1e6)  return (num / 1e6).toFixed(1) + 'M';       // Miliony
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'tys';     // Tysiące
+    return Math.floor(num).toString() + 'g';                    // Jednostki
 };
 
-// FORMATOWANIE MNOŻNIKA (tylko x i skróty)
+// FORMATOWANIE MNOŻNIKA (xM, xb, xt, xk)
 const formatMult = (n) => {
     let num = Number(n);
-    if (isNaN(num)) return "x1.0";
+    if (isNaN(num) || num <= 1) return "x1.0";
+
     if (num >= 1e15) return "x" + (num / 1e15).toFixed(2) + 'k';
     if (num >= 1e12) return "x" + (num / 1e12).toFixed(2) + 't';
-    if (num >= 1e9) return "x" + (num / 1e9).toFixed(2) + 'b';
-    if (num >= 1000000) return "x" + (num / 1000000).toFixed(1) + 'M';
-    return "x" + num.toFixed(1);
+    if (num >= 1e9)  return "x" + (num / 1e9).toFixed(2) + 'b';
+    if (num >= 1e6)  return "x" + (num / 1e6).toFixed(1) + 'M';
+    
+    // Dla małych mnożników (poniżej miliona) zostawiamy standardowe x.liczba
+    return "x" + num.toLocaleString('fullwide', {useGrouping:false, maximumFractionDigits:1});
 };
 
 module.exports = {
