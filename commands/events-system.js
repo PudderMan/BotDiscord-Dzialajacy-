@@ -12,21 +12,34 @@ const loadConfig = () => {
     }
 };
 
-const eventsSystem = {
+module.exports = {
+    init(client) {
+        console.log("🚀 System Eventów: Słuchacz przycisków aktywny.");
+        
+        // Obsługa kliknięcia przycisku "Zgłoś się"
+        client.on('interactionCreate', async (interaction) => {
+            if (!interaction.isButton()) return;
+            if (interaction.customId.startsWith('event_join_')) {
+                const kategoria = interaction.customId.replace('event_join_', '');
+                
+                try {
+                    // Odpowiadamy natychmiast, żeby nie było błędu "Czynność się nie powiodła"
+                    await interaction.deferReply({ ephemeral: true });
+                    await this.createPrivateQuestion(interaction, kategoria);
+                } catch (e) {
+                    console.error("❌ Błąd przycisku:", e);
+                }
+            }
+        });
+    },
+
     async triggerEvent(client) {
-        console.log("[LOG] Uruchamianie triggerEvent...");
         try {
             const channelId = process.env.EVENT_CHANNEL_ID;
             const channel = await client.channels.fetch(channelId).catch(() => null);
-            
-            if (!channel) {
-                console.log("❌ Nie znaleziono kanału o ID:", channelId);
-                return;
-            }
+            if (!channel) return console.log("❌ Nie znaleziono kanału ogłoszeń.");
 
             const config = loadConfig();
-            if (!config) return;
-
             const kats = Object.keys(config.kategorie);
             const wybranakat = kats[Math.floor(Math.random() * kats.length)];
 
@@ -43,14 +56,10 @@ const eventsSystem = {
             );
 
             await channel.send({ embeds: [embed], components: [row] });
-            console.log("✅ Wiadomość eventowa wysłana!");
-        } catch (error) {
-            console.error("❌ Błąd w triggerEvent:", error);
-        }
+        } catch (e) { console.error(e); }
     },
 
     async createPrivateQuestion(interaction, kategoria) {
-        console.log(`[LOG] Tworzenie pytania dla ${interaction.user.tag}`);
         const config = loadConfig();
         const pytaniaZKat = config.kategorie[kategoria];
         const pytanie = pytaniaZKat[Math.floor(Math.random() * pytaniaZKat.length)];
@@ -58,20 +67,30 @@ const eventsSystem = {
 
         try {
             const categoryId = process.env.EVENT_CATEGORY_ID;
+            const guild = interaction.guild;
 
-            const channel = await interaction.guild.channels.create({
+            // SPRAWDZENIE UPRAWNIEŃ
+            const botMember = guild.members.me;
+            if (!botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
+                console.log("❌ BOT NIE MA UPRAWNIENIA: ManageChannels");
+                return await interaction.editReply("Bot nie ma uprawnień do tworzenia kanałów!");
+            }
+
+            const channel = await guild.channels.create({
                 name: `event-${interaction.user.username}`,
                 type: ChannelType.GuildText,
                 parent: categoryId,
                 permissionOverwrites: [
-                    { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
                     { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ],
             });
 
+            await interaction.editReply({ content: `Kanał stworzony: ${channel}` });
+
             const qEmbed = new EmbedBuilder()
                 .setTitle(`PYTANIE: ${kategoria.toUpperCase()}`)
-                .setDescription(`**${pytanie.p}**\n\nMasz **20 sekund** na odpowiedź!`)
+                .setDescription(`**${pytanie.p}**\n\nMasz **20 sekund**!`)
                 .setColor('#f39c12');
 
             const shuffledOptions = pytanie.o.sort(() => Math.random() - 0.5);
@@ -84,32 +103,27 @@ const eventsSystem = {
                 )
             );
 
-            await channel.send({ content: `🔔 <@${interaction.user.id}> Twoje pytanie!`, embeds: [qEmbed], components: [row] });
-            await interaction.editReply({ content: `Kanał został stworzony: ${channel}` });
-
-            const collector = channel.createMessageComponentCollector({ componentType: ComponentType.Button, time: 20000 });
+            const m = await channel.send({ content: `🔔 <@${interaction.user.id}>`, embeds: [qEmbed], components: [row] });
+            const collector = m.createMessageComponentCollector({ componentType: ComponentType.Button, time: 20000 });
 
             collector.on('collect', async (i) => {
                 if (i.user.id !== interaction.user.id) return;
                 if (i.customId === 'q_correct') {
-                    await i.update({ content: `✅ **POPRAWNIE!**\nWygrana: **${nagroda}**\nNagroda do dodania ręcznie.`, embeds: [], components: [] });
+                    await i.update({ content: `✅ **DOBRZE!** Wygrana: **${nagroda}**`, embeds: [], components: [] });
                 } else {
-                    await i.update({ content: `❌ **BŁĄD!**\nPoprawna odpowiedź: **${pytanie.pop}**.`, embeds: [], components: [] });
+                    await i.update({ content: `❌ **ŹLE!** Poprawna: **${pytanie.pop}**`, embeds: [], components: [] });
                 }
                 collector.stop();
             });
 
             collector.on('end', async (_, reason) => {
-                if (reason === 'time') await channel.send("⏰ Koniec czasu!");
+                if (reason === 'time') await channel.send("⏰ Koniec czasu.");
                 setTimeout(() => channel.delete().catch(() => {}), 5000);
             });
 
         } catch (e) {
-            console.error("❌ Błąd przy tworzeniu kanału:", e);
-            await interaction.editReply("Błąd podczas tworzenia kanału.");
+            console.error("❌ BŁĄD TWORZENIA KANAŁU:", e);
+            await interaction.editReply("Wystąpił błąd techniczny przy tworzeniu kanału.");
         }
     }
 };
-
-// WAŻNE: Eksportujemy obiekt, żeby inne pliki mogły go używać
-module.exports = eventsSystem;
