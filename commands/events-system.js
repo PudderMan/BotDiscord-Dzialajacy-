@@ -42,11 +42,18 @@ module.exports = {
         });
 
         setInterval(async () => {
-            const now = new Date();
+            // Pobieramy czas wymuszając strefę czasową Warszawy
+            const polandTime = new Date().toLocaleString("en-US", { timeZone: "Europe/Warsaw" });
+            const now = new Date(polandTime);
+            
             const h = now.getHours();
             const m = now.getMinutes();
+
+            // Teraz możesz wpisać polskie godziny bezpośrednio (16:00 - 20:00)
             if (h >= 16 && h < 20 && (m === 0 || m === 30)) {
-                if (Math.random() < 0.5) await this.triggerEvent(client);
+                if (Math.random() < 0.5) {
+                    await this.triggerEvent(client);
+                }
             }
         }, 60000);
     },
