@@ -20,7 +20,7 @@
       {"p": "Która mechanika NIE resetuje się po śmierci?", "o": ["Stacki Surgea", "Bonus Max", "Liczba kostek mocy", "Naładowany Super"], "pop": "Liczba kostek mocy"},
       {"p": "Który brawler nigdy nie był top pickiem w Brawl Ballu?", "o": ["Frank", "Jacky", "Mortis", "Edgar"], "pop": "Frank"},
       {"p": "Który brawler ma najkrótszy zasięg ataku?", "o": ["El Primo", "Rosa", "Edgar", "Jacky"], "pop": "Jacky"},
-      {"p": "Który brawler nie był dostępny za darmo w evencie?", "o": ["Edgar", "Gray", "Mico", "Shelly"], "pop": "Gray"},
+      {"p": "Który brawler nie był dostępny za darmo w evencie?", "o": ["Edgar", "Gray", "Mico", "Shelly"], "pop": "Shelly"},
       {"p": "Które zdanie jest prawdziwe, ale brzmi fałszywie?", "o": ["Wygrana bez killi", "Gol bez piłki", "Super bez trafienia", "Wszystkie są prawdziwe"], "pop": "Wszystkie są prawdziwe"}
     ],
     "sylwester": [
