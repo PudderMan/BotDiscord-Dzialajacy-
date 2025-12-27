@@ -33,7 +33,7 @@ module.exports = {
             let data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
 
             if (!data) {
-                // START Z 0g W KIESZENI
+                // START Z CZYSTYM KONTEM
                 db.prepare(`INSERT INTO players (userId, proch, multiplier, mega_multiplier, total_fajerwerki, fajerwerki_waluta, dzik, max_dzik, zimne_ognie, piccolo, szampan, wyrzutnia, pudelko, brawlpass_count) VALUES (?, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0)`).run(userId);
                 data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
             }
@@ -75,11 +75,11 @@ module.exports = {
             }
 
             // --- SKLEP ---
+            // --- SKLEP ---
             if (interaction.customId === 'open_shop' || interaction.customId.startsWith('shop_p')) {
                 let page = 1;
                 if (interaction.customId.startsWith('shop_p')) {
-                    const pageVal = parseInt(interaction.customId.replace('shop_p', ''));
-                    if (!isNaN(pageVal)) page = pageVal;
+                    page = parseInt(interaction.customId.replace('shop_p', '')) || 1;
                 }
 
                 const sEmbed = new EmbedBuilder()
@@ -105,25 +105,23 @@ module.exports = {
                         new ButtonBuilder().setCustomId('buy_wyrzutnia').setLabel('Wyrzutnia').setStyle(ButtonStyle.Secondary)
                     );
                     row2.addComponents(new ButtonBuilder().setCustomId('shop_p2').setLabel('Strona 2 ➡️').setStyle(ButtonStyle.Primary));
-                    rows.push(row1, row2);
                 } else if (page === 2) {
                     const dzikCost = gameConfig.prices.dzik_prices[data.dzik] || "MAX";
-                    sEmbed.addFields({ name: `🐗 Dzik (${data.dzik}/5) (*1.5)`, value: `${dzikCost === "MAX" ? "MAX" : formatNum(dzikCost)}`, inline: true }, { name: `🌵 BP (${data.brawlpass_count}/${gameConfig.boosts.brawlpass_limit}) (*5)`, value: `${formatNum(currentBpPrice)}`, inline: true });
+                    sEmbed.addFields(
+                        { name: `🐗 Dzik (${data.dzik}/5) (*1.5)`, value: `${dzikCost === "MAX" ? "MAX" : formatNum(dzikCost)}`, inline: true }, 
+                        { name: `🌵 BP (${data.brawlpass_count}/${gameConfig.boosts.brawlpass_limit}) (*5)`, value: `${formatNum(currentBpPrice)}`, inline: true }
+                    );
                     row1.addComponents(
-                        new ButtonBuilder().setCustomId('buy_dzik').setLabel('Dzik').setStyle(ButtonStyle.Success).setDisabled(dzikCost === "MAX"),
+                        new ButtonBuilder().setCustomId('buy_dzik').setLabel('Dzik').setStyle(ButtonStyle.Success).setDisabled(dzikCost === "MAX" || data.dzik >= 5),
                         new ButtonBuilder().setCustomId('buy_brawlpass').setLabel('BrawlPass').setStyle(ButtonStyle.Danger).setDisabled(data.brawlpass_count >= gameConfig.boosts.brawlpass_limit)
                     );
                     row2.addComponents(new ButtonBuilder().setCustomId('shop_p1').setLabel('⬅️ Strona 1').setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId('shop_p3').setLabel('Strona 3 ➡️').setStyle(ButtonStyle.Primary));
-                    rows.push(row1, row2);
-                } else if (page === 3) {
-                    const hasPaczka = data.mega_multiplier > 1;
-                    sEmbed.addFields({ name: '📦 WIELKA PACZKA', value: hasPaczka ? "✅ ZAKUPIONO" : `Koszt: ${gameConfig.prices.paczka_fajerwerek_cost} 🎇\nRESETUJE WSZYSTKO` });
-                    row1.addComponents(new ButtonBuilder().setCustomId('buy_paczka').setLabel(hasPaczka ? 'WYKORZYSTANO' : 'ODPAL PACZKĘ 🎆').setStyle(ButtonStyle.Danger).setDisabled(hasPaczka));
-                    row2.addComponents(new ButtonBuilder().setCustomId('shop_p2').setLabel('⬅️ Strona 2').setStyle(ButtonStyle.Primary));
-                    rows.push(row1, row2);
                 }
 
-                return await (interaction.replied || interaction.deferred ? interaction.editReply({ embeds: [sEmbed], components: rows }) : interaction.reply({ embeds: [sEmbed], components: rows, flags: [MessageFlags.Ephemeral] }));
+                rows.push(row1, row2);
+                
+                // Kluczowa zmiana: interaction.update zamiast interaction.reply
+                return await interaction.update({ embeds: [sEmbed], components: rows });
             }
 
             // --- START GRY ---
