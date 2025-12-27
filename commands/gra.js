@@ -87,10 +87,10 @@ module.exports = {
 
                 if (page === 1) {
                     sEmbed.addFields(
-                        { name: '🎇 Zimne', value: `${gameConfig.prices.zimne_ognie}g (+1)`, inline: true },
-                        { name: '🍾 Piccolo', value: `${gameConfig.prices.piccolo}g (+10)`, inline: true },
-                        { name: '🥂 Szampan', value: `${gameConfig.prices.szampan_procenty}g (+50)`, inline: true },
-                        { name: '🚀 Wyrzutnia', value: `${gameConfig.prices.wyrzutnia_pro}g (+250)`, inline: true }
+                        { name: '🎇 Zimne (+1)', value: `${gameConfig.prices.zimne_ognie}g`, inline: true },
+                        { name: '🍾 Piccolo (+10)', value: `${gameConfig.prices.piccolo}g`, inline: true },
+                        { name: '🥂 Szampan (+50)', value: `${gameConfig.prices.szampan_procenty}g`, inline: true },
+                        { name: '🚀 Wyrzutnia (+250)', value: `${gameConfig.prices.wyrzutnia_pro}g`, inline: true }
                     );
                     row1.addComponents(
                         new ButtonBuilder().setCustomId('buy_zimne').setLabel('Zimne').setStyle(ButtonStyle.Secondary),
