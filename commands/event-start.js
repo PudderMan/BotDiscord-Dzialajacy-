@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-// Wychodzimy o jeden folder wyżej (z /commands/ do folderu głównego)
+// Wychodzimy o jeden folder wyżej do katalogu głównego
 const eventSystem = require('../events-system.js');
 
 module.exports = {
@@ -20,7 +20,7 @@ module.exports = {
         } catch (error) {
             console.error("Błąd podczas ręcznego startu eventu:", error);
             await interaction.reply({ 
-                content: '❌ Wystąpił błąd podczas uruchamiania eventu. Sprawdź konsolę.', 
+                content: '❌ Wystąpił błąd (prawdopodobnie brak pliku events-system.js w folderze głównym).', 
                 ephemeral: true 
             });
         }
