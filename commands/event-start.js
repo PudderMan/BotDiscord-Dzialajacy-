@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-// Ta linia mówi: wyjdź z folderu 'commands' (../) i szukaj pliku w folderze głównym
-const eventSystem = require('../events-system.js');
+// Używamy ./ ponieważ plik jest w tym samym folderze co ta komenda
+const eventSystem = require('./events-system.js'); 
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -10,19 +10,11 @@ module.exports = {
 
     async execute(interaction) {
         try {
-            // Próba wywołania funkcji z pliku głównego
             await eventSystem.triggerManual(interaction.client);
-            
-            await interaction.reply({ 
-                content: '✅ Pytanie eventowe zostało wysłane na kanał!', 
-                ephemeral: true 
-            });
+            await interaction.reply({ content: '✅ Event wystartował!', ephemeral: true });
         } catch (error) {
-            console.error("Błąd komendy eventstart:", error);
-            await interaction.reply({ 
-                content: '❌ Nie udało się uruchomić eventu. Upewnij się, że plik events-system.js jest w folderze głównym.', 
-                ephemeral: true 
-            });
+            console.error(error);
+            await interaction.reply({ content: '❌ Błąd modułu.', ephemeral: true });
         }
     },
 };
