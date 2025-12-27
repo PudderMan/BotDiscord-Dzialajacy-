@@ -37,6 +37,12 @@ module.exports = {
                 db.prepare(`INSERT INTO players (userId, proch, multiplier, mega_multiplier, total_fajerwerki, fajerwerki_waluta, dzik, max_dzik, zimne_ognie, piccolo, szampan, wyrzutnia, pudelko, brawlpass_count) VALUES (?, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0)`).run(userId);
                 data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
             }
+            // --- SYSTEM NAPRAWCZY DLA BUGU 6 DZIKÓW ---
+            if (data.dzik > 5) {
+                db.prepare('UPDATE players SET dzik = 5 WHERE userId = ?').run(userId);
+                data.dzik = 5; 
+                console.log(`🔧 Naprawiono konto gracza ${userId} (zredukowano 6 dzików do 5)`);
+            }
 
             const prestigeMult = Math.pow(2, data.total_fajerwerki); 
             const curMult = (data.multiplier + (data.brawlpass_count * 5) + (data.dzik * gameConfig.boosts.dzik_val)) * data.mega_multiplier * prestigeMult;
@@ -138,7 +144,7 @@ module.exports = {
                 const gEmbed = new EmbedBuilder().setTitle('🥂 Twój Magazyn').setImage(gameConfig.gfx.main_gif).setColor(gameConfig.gfx.color)
                     .addFields({ name: '✨ Proch:', value: `${formatNum(data.proch)}`, inline: true }, { name: '🚀 Mnożnik:', value: `x${curMult.toFixed(1)}`, inline: true }, { name: '🎇 Fajerwerki:', value: `${data.fajerwerki_waluta}`, inline: true });
                 const btns = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('click_proch').setLabel('Zabierz Proch! 🧨').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId('click_proch').setLabel('Zbierz Proch! 🧨').setStyle(ButtonStyle.Success),
                     new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary),
                     new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatNum(nextPresPrice)})`).setStyle(ButtonStyle.Danger)
                 );
@@ -149,6 +155,8 @@ module.exports = {
             // --- KUPYWANIE ---
             if (interaction.customId.startsWith('buy_')) {
                 const item = interaction.customId.replace('buy_', '');
+                
+                // 1. Obsługa Paczki
                 if (item === 'paczka') {
                     if (data.mega_multiplier > 1) return await interaction.reply({ content: "❌ Już wykorzystano!", flags: [MessageFlags.Ephemeral] });
                     if (data.fajerwerki_waluta < gameConfig.prices.paczka_fajerwerek_cost) return await interaction.reply({ content: "❌ Brak 🎇!", flags: [MessageFlags.Ephemeral] });
@@ -157,31 +165,45 @@ module.exports = {
                 }
 
                 let cost = 0, dbCol = "";
-                if (item === 'brawlpass') {
-                    cost = currentBpPrice; dbCol = 'brawlpass_count';
-                } else if (item === 'dzik') {
-                    cost = gameConfig.prices.dzik_prices[data.dzik]; dbCol = 'dzik';
-                } else {
+                
+                // 2. Obsługa Dzików (Limit 5)
+                if (item === 'dzik') {
+                    if (data.dzik >= 5) {
+                        return await interaction.reply({ content: "❌ Osiągnąłeś już limit (5/6 dzików)!", flags: [MessageFlags.Ephemeral] });
+                    }
+                    cost = gameConfig.prices.dzik_prices[data.dzik]; 
+                    dbCol = 'dzik';
+                } 
+                // 3. Obsługa BrawlPass
+                else if (item === 'brawlpass') {
+                    cost = currentBpPrice; 
+                    dbCol = 'brawlpass_count';
+                } 
+                // 4. Pozostałe przedmioty
+                else {
                     const pMap = { zimne: 'zimne_ognie', piccolo: 'piccolo', szampan: 'szampan_procenty', wyrzutnia: 'wyrzutnia_pro' };
                     const dMap = { zimne: 'zimne_ognie', piccolo: 'piccolo', szampan: 'szampan', wyrzutnia: 'wyrzutnia' };
-                    cost = gameConfig.prices[pMap[item]]; dbCol = dMap[item];
+                    cost = gameConfig.prices[pMap[item]]; 
+                    dbCol = dMap[item];
                 }
 
+                // Sprawdzenie funduszy
                 if (data.proch < cost) return await interaction.reply({ content: "❌ Brak prochu!", flags: [MessageFlags.Ephemeral] });
-                db.prepare(`UPDATE players SET proch = proch - ?, ${dbCol} = ${dbCol} + 1 WHERE userId = ?`).run(cost, userId);
-                return await interaction.reply({ content: `✅ Kupiono ${item}!`, flags: [MessageFlags.Ephemeral] });
-            }
 
-            // --- PRESTIŻ ---
-            if (interaction.customId === 'firework_boom') {
-                if (data.proch < nextPresPrice) return await interaction.reply({ content: `❌ Wymagane: ${formatNum(nextPresPrice)}`, flags: [MessageFlags.Ephemeral] });
-                db.prepare('UPDATE players SET proch=0, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, brawlpass_count=0, total_fajerwerki=total_fajerwerki+1, fajerwerki_waluta=fajerwerki_waluta+1 WHERE userId=?').run(userId);
+                // ZAPIS DO BAZY
+                db.prepare(`UPDATE players SET proch = proch - ?, ${dbCol} = ${dbCol} + 1 WHERE userId = ?`).run(cost, userId);
                 
-                const freshData = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
-                const newPrice = gameConfig.prices.prestige_base * Math.pow(gameConfig.prices.prestige_scaling, freshData.total_fajerwerki);
-                const presEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setFields({ name: '✨ Proch:', value: `0g`, inline: true }, { name: '🚀 Mnożnik:', value: `x${(freshData.mega_multiplier * Math.pow(2, freshData.total_fajerwerki)).toFixed(1)}`, inline: true }, { name: '🎇 Fajerwerki:', value: `${freshData.fajerwerki_waluta}`, inline: true });
-                const presRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('click_proch').setLabel('Zabierz Proch! 🧨').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatNum(newPrice)})`).setStyle(ButtonStyle.Danger));
-                return await interaction.update({ embeds: [presEmbed], components: [presRow] });
+                // ODŚWIEŻANIE SKLEPU ZAMIAST NOWEJ WIADOMOŚCI
+                // Wywołujemy ponownie logikę sklepu, aby zaktualizować obecne okno
+                const updatedData = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
+                
+                // Ponownie definiujemy page na podstawie aktualnego widoku
+                const currentPage = interaction.message.embeds[0].title.includes('Strona 2') ? 2 : (interaction.message.embeds[0].title.includes('Strona 3') ? 3 : 1);
+                
+                // Tworzymy sztuczną interakcję, aby "open_shop" wiedział którą stronę pokazać
+                interaction.customId = `shop_p${currentPage}`;
+                // Zamiast reply, wywołujemy logikę sklepu jeszcze raz
+                return await this.handleInteraction(interaction);
             }
 
         } catch (err) {
