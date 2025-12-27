@@ -54,7 +54,7 @@ client.on('interactionCreate', async interaction => {
 // Logowanie bota
 client.login(process.env.DISCORD_TOKEN).then(() => {
     client.user.setActivity('wybuchające fajerwerki', { type: 3 });
-
+    console.log(`🌍 Serwer fizycznie znajduje się w strefie: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
     console.log(`
     ====================================
     🚀 BOT SYLWESTROWY JEST ONLINE!
