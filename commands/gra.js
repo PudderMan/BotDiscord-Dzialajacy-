@@ -33,7 +33,8 @@ module.exports = {
             let data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
 
             if (!data) {
-                db.prepare(`INSERT INTO players (userId, proch, multiplier, mega_multiplier, total_fajerwerki, fajerwerki_waluta, dzik, max_dzik, zimne_ognie, piccolo, szampan, wyrzutnia, pudelko, brawlpass_count) VALUES (?, 1000, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0)`).run(userId);
+                // START Z 0g W KIESZENI
+                db.prepare(`INSERT INTO players (userId, proch, multiplier, mega_multiplier, total_fajerwerki, fajerwerki_waluta, dzik, max_dzik, zimne_ognie, piccolo, szampan, wyrzutnia, pudelko, brawlpass_count) VALUES (?, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0)`).run(userId);
                 data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
             }
 
@@ -42,9 +43,11 @@ module.exports = {
             const nextPresPrice = gameConfig.prices.prestige_base * Math.pow(gameConfig.prices.prestige_scaling, data.total_fajerwerki);
             const currentBpPrice = gameConfig.prices.brawlpass_base * Math.pow(gameConfig.prices.brawlpass_scaling, data.brawlpass_count);
 
-            // --- ZABIERZ PROCH ---
+            // --- KLIKANIE ---
             if (interaction.customId === 'click_proch') {
                 const itemsGain = (data.zimne_ognie * gameConfig.boosts.zimne_ognie) + (data.piccolo * gameConfig.boosts.piccolo) + (data.szampan * gameConfig.boosts.szampan_procenty) + (data.wyrzutnia * gameConfig.boosts.wyrzutnia_pro);
+                
+                // PRZYWRÓCONO: 1 + itemsGain (Gwarantuje 1g na start bez ulepszeń)
                 const totalGain = Math.floor((1 + itemsGain) * curMult);
                 
                 db.prepare('UPDATE players SET proch = proch + ? WHERE userId = ?').run(totalGain, userId);
@@ -99,91 +102,65 @@ module.exports = {
                     rows.push(row1, row2);
                 } else if (page === 2) {
                     const dzikCost = gameConfig.prices.dzik_prices[data.dzik] || "MAX";
-                    sEmbed.addFields(
-                        { name: `🐗 Dzik (${data.dzik}/5)`, value: `${dzikCost === "MAX" ? "MAX" : formatNum(dzikCost)}`, inline: true },
-                        { name: `🌵 BP (${data.brawlpass_count}/${gameConfig.boosts.brawlpass_limit})`, value: `${formatNum(currentBpPrice)}`, inline: true }
-                    );
+                    sEmbed.addFields({ name: `🐗 Dzik (${data.dzik}/5)`, value: `${dzikCost === "MAX" ? "MAX" : formatNum(dzikCost)}`, inline: true }, { name: `🌵 BP (${data.brawlpass_count}/${gameConfig.boosts.brawlpass_limit})`, value: `${formatNum(currentBpPrice)}`, inline: true });
                     row1.addComponents(
                         new ButtonBuilder().setCustomId('buy_dzik').setLabel('Dzik').setStyle(ButtonStyle.Success).setDisabled(dzikCost === "MAX"),
                         new ButtonBuilder().setCustomId('buy_brawlpass').setLabel('BrawlPass').setStyle(ButtonStyle.Danger).setDisabled(data.brawlpass_count >= gameConfig.boosts.brawlpass_limit)
                     );
-                    row2.addComponents(
-                        new ButtonBuilder().setCustomId('shop_p1').setLabel('⬅️ Strona 1').setStyle(ButtonStyle.Primary),
-                        new ButtonBuilder().setCustomId('shop_p3').setLabel('Strona 3 ➡️').setStyle(ButtonStyle.Primary)
-                    );
+                    row2.addComponents(new ButtonBuilder().setCustomId('shop_p1').setLabel('⬅️ Strona 1').setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId('shop_p3').setLabel('Strona 3 ➡️').setStyle(ButtonStyle.Primary));
                     rows.push(row1, row2);
                 } else if (page === 3) {
                     const hasPaczka = data.mega_multiplier > 1;
-                    sEmbed.addFields({ name: '📦 WIELKA PACZKA', value: hasPaczka ? "✅ ZAKUPIONO" : `Koszt: ${gameConfig.prices.paczka_fajerwerek_cost} 🎇\nRESETUJE WSZYSTKO BEZ WYJĄTKÓW` });
+                    sEmbed.addFields({ name: '📦 WIELKA PACZKA', value: hasPaczka ? "✅ ZAKUPIONO" : `Koszt: ${gameConfig.prices.paczka_fajerwerek_cost} 🎇\nRESETUJE WSZYSTKO` });
                     row1.addComponents(new ButtonBuilder().setCustomId('buy_paczka').setLabel(hasPaczka ? 'WYKORZYSTANO' : 'ODPAL PACZKĘ 🎆').setStyle(ButtonStyle.Danger).setDisabled(hasPaczka));
                     row2.addComponents(new ButtonBuilder().setCustomId('shop_p2').setLabel('⬅️ Strona 2').setStyle(ButtonStyle.Primary));
                     rows.push(row1, row2);
                 }
 
-                if (interaction.replied || interaction.deferred) {
-                    return await interaction.editReply({ embeds: [sEmbed], components: rows });
-                } else {
-                    return await interaction.reply({ embeds: [sEmbed], components: rows, flags: [MessageFlags.Ephemeral] });
-                }
+                return await (interaction.replied || interaction.deferred ? interaction.editReply({ embeds: [sEmbed], components: rows }) : interaction.reply({ embeds: [sEmbed], components: rows, flags: [MessageFlags.Ephemeral] }));
             }
 
             // --- START GRY ---
             if (interaction.customId === 'start_game') {
                 await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
                 const roleId = process.env.PLAYER_ROLE_ID;
                 if (roleId) {
                     try {
                         const member = await interaction.guild.members.fetch(userId);
                         if (member && !member.roles.cache.has(roleId)) await member.roles.add(roleId);
-                    } catch (e) { console.error("Błąd nadawania roli:", e); }
+                    } catch (e) { console.error("Błąd roli:", e); }
                 }
-
-                try {
-                    const ch = await interaction.guild.channels.create({
-                        name: `magazyn-${interaction.user.username}`,
-                        parent: process.env.CATEGORY_ID || null,
-                        permissionOverwrites: [
-                            { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-                            { id: userId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
-                        ],
-                    });
-
-                    const gEmbed = new EmbedBuilder().setTitle('🥂 Twój Magazyn').setImage(gameConfig.gfx.main_gif).setColor(gameConfig.gfx.color)
-                        .addFields({ name: '✨ Proch:', value: `${formatNum(data.proch)}`, inline: true }, { name: '🚀 Mnożnik:', value: `x${curMult.toFixed(1)}`, inline: true }, { name: '🎇 Fajerwerki:', value: `${data.fajerwerki_waluta}`, inline: true });
-                    
-                    const btns = new ActionRowBuilder().addComponents(
-                        new ButtonBuilder().setCustomId('click_proch').setLabel('Zabierz Proch! 🧨').setStyle(ButtonStyle.Success),
-                        new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary),
-                        new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatNum(nextPresPrice)})`).setStyle(ButtonStyle.Danger)
-                    );
-
-                    await ch.send({ content: `<@${userId}>`, embeds: [gEmbed], components: [btns] });
-                    return await interaction.editReply({ content: `✅ Magazyn stworzony: ${ch}` });
-                } catch (err) {
-                    return await interaction.editReply({ content: "❌ Błąd tworzenia kanału! Sprawdź uprawnienia bota." });
-                }
+                const ch = await interaction.guild.channels.create({
+                    name: `magazyn-${interaction.user.username}`,
+                    parent: process.env.CATEGORY_ID || null,
+                    permissionOverwrites: [{ id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] }, { id: userId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }],
+                });
+                const gEmbed = new EmbedBuilder().setTitle('🥂 Twój Magazyn').setImage(gameConfig.gfx.main_gif).setColor(gameConfig.gfx.color)
+                    .addFields({ name: '✨ Proch:', value: `${formatNum(data.proch)}`, inline: true }, { name: '🚀 Mnożnik:', value: `x${curMult.toFixed(1)}`, inline: true }, { name: '🎇 Fajerwerki:', value: `${data.fajerwerki_waluta}`, inline: true });
+                const btns = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('click_proch').setLabel('Zabierz Proch! 🧨').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatNum(nextPresPrice)})`).setStyle(ButtonStyle.Danger)
+                );
+                await ch.send({ content: `<@${userId}>`, embeds: [gEmbed], components: [btns] });
+                return await interaction.editReply({ content: `✅ Magazyn stworzony: ${ch}` });
             }
 
             // --- KUPYWANIE ---
             if (interaction.customId.startsWith('buy_')) {
                 const item = interaction.customId.replace('buy_', '');
-                
                 if (item === 'paczka') {
-                    if (data.mega_multiplier > 1) return await interaction.reply({ content: "❌ Paczka jest jednorazowa!", flags: [MessageFlags.Ephemeral] });
+                    if (data.mega_multiplier > 1) return await interaction.reply({ content: "❌ Już wykorzystano!", flags: [MessageFlags.Ephemeral] });
                     if (data.fajerwerki_waluta < gameConfig.prices.paczka_fajerwerek_cost) return await interaction.reply({ content: "❌ Brak 🎇!", flags: [MessageFlags.Ephemeral] });
                     db.prepare(`UPDATE players SET proch=0, multiplier=1, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, brawlpass_count=0, total_fajerwerki=0, fajerwerki_waluta=0, mega_multiplier=10 WHERE userId=?`).run(userId);
-                    return await interaction.reply({ content: "💥 RESET! Otrzymałeś x10!", flags: [MessageFlags.Ephemeral] });
+                    return await interaction.reply({ content: "💥 TOTALNY RESET!", flags: [MessageFlags.Ephemeral] });
                 }
 
                 let cost = 0, dbCol = "";
                 if (item === 'brawlpass') {
-                    if (data.brawlpass_count >= gameConfig.boosts.brawlpass_limit) return await interaction.reply({ content: "❌ Limit BP!", flags: [MessageFlags.Ephemeral] });
                     cost = currentBpPrice; dbCol = 'brawlpass_count';
                 } else if (item === 'dzik') {
-                    cost = gameConfig.prices.dzik_prices[data.dzik];
-                    if (!cost) return await interaction.reply({ content: "❌ Limit Dzika!", flags: [MessageFlags.Ephemeral] });
-                    dbCol = 'dzik';
+                    cost = gameConfig.prices.dzik_prices[data.dzik]; dbCol = 'dzik';
                 } else {
                     const pMap = { zimne: 'zimne_ognie', piccolo: 'piccolo', szampan: 'szampan_procenty', wyrzutnia: 'wyrzutnia_pro' };
                     const dMap = { zimne: 'zimne_ognie', piccolo: 'piccolo', szampan: 'szampan', wyrzutnia: 'wyrzutnia' };
@@ -195,36 +172,20 @@ module.exports = {
                 return await interaction.reply({ content: `✅ Kupiono ${item}!`, flags: [MessageFlags.Ephemeral] });
             }
 
-            // --- ODPAL (PRESTIŻ) ---
+            // --- PRESTIŻ ---
             if (interaction.customId === 'firework_boom') {
                 if (data.proch < nextPresPrice) return await interaction.reply({ content: `❌ Wymagane: ${formatNum(nextPresPrice)}`, flags: [MessageFlags.Ephemeral] });
-                
                 db.prepare('UPDATE players SET proch=0, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, brawlpass_count=0, total_fajerwerki=total_fajerwerki+1, fajerwerki_waluta=fajerwerki_waluta+1 WHERE userId=?').run(userId);
+                
                 const freshData = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
                 const newPrice = gameConfig.prices.prestige_base * Math.pow(gameConfig.prices.prestige_scaling, freshData.total_fajerwerki);
-                
-                const presEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setFields(
-                    { name: '✨ Proch:', value: `0g`, inline: true },
-                    { name: '🚀 Mnożnik:', value: `x${(freshData.mega_multiplier * Math.pow(2, freshData.total_fajerwerki)).toFixed(1)}`, inline: true },
-                    { name: '🎇 Fajerwerki:', value: `${freshData.fajerwerki_waluta}`, inline: true }
-                );
-                
-                const presRow = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('click_proch').setLabel('Zabierz Proch! 🧨').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatNum(newPrice)})`).setStyle(ButtonStyle.Danger)
-                );
-
+                const presEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setFields({ name: '✨ Proch:', value: `0g`, inline: true }, { name: '🚀 Mnożnik:', value: `x${(freshData.mega_multiplier * Math.pow(2, freshData.total_fajerwerki)).toFixed(1)}`, inline: true }, { name: '🎇 Fajerwerki:', value: `${freshData.fajerwerki_waluta}`, inline: true });
+                const presRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('click_proch').setLabel('Zabierz Proch! 🧨').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatNum(newPrice)})`).setStyle(ButtonStyle.Danger));
                 return await interaction.update({ embeds: [presEmbed], components: [presRow] });
             }
 
         } catch (err) {
-            console.error("Błąd krytyczny:", err);
-            try {
-                if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({ content: "Wystąpił błąd silnika gry!", flags: [MessageFlags.Ephemeral] });
-                }
-            } catch (e) {}
+            console.error("Błąd:", err);
         }
     }
 };
