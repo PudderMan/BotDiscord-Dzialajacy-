@@ -2,32 +2,36 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFl
 const fs = require('fs');
 const path = require('path');
 
-// Funkcja bezpiecznie ładująca konfigurację
+// Funkcja ładująca konfigurację z pliku w tym samym folderze
 const loadConfig = () => {
     try {
         const filePath = path.join(__dirname, 'configpytan.json');
         return JSON.parse(fs.readFileSync(filePath, 'utf8'));
     } catch (err) {
         console.error("❌ BŁĄD: Nie można odczytać pliku configpytan.json!", err);
-        return null; // Zwraca null, aby zapobiec crashowi bota
+        return null;
     }
 };
+
 module.exports = {
     init(client) {
-        console.log("✅ System Eventów (16-20) Aktywny. Nagrody przyznawane RĘCZNIE.");
+        console.log("✅ System Eventów (16-20) Aktywny. Nagrody RĘCZNE.");
         
+        // Pętla sprawdzająca czas co minutę
         setInterval(async () => {
             const now = new Date();
             const h = now.getHours();
             const m = now.getMinutes();
 
+            // Okno czasowe 16:00 - 20:00, sprawdzanie co 30 minut (:00 i :30)
             if (h >= 16 && h < 20 && (m === 0 || m === 30)) {
-                if (Math.random() < 0.5) {
+                if (Math.random() < 0.5) { // 50% szansy na pojawienie się pytania
                     await this.triggerEvent(client);
                 }
             }
         }, 60000);
 
+        // Globalny listener dla przycisków
         client.on('interactionCreate', async (interaction) => {
             if (!interaction.isButton()) return;
             if (interaction.customId.startsWith('event_join_')) {
@@ -38,31 +42,41 @@ module.exports = {
     },
 
     async triggerEvent(client) {
-        const channel = await client.channels.fetch(process.env.EVENT_CHANNEL_ID);
-        if (!channel) return;
+        try {
+            const channel = await client.channels.fetch(process.env.EVENT_CHANNEL_ID);
+            if (!channel) return console.error("❌ Nie znaleziono kanału ogłoszeń eventu!");
 
-        const config = loadConfig();
-        const kats = Object.keys(config.kategorie);
-        const wybranakat = kats[Math.floor(Math.random() * kats.length)];
+            const config = loadConfig();
+            if (!config) return;
 
-        const embed = new EmbedBuilder()
-            .setTitle(`🔔 KONKURS: ${wybranakat.toUpperCase()}`)
-            .setDescription(`Pojawiło się pytanie! Pierwsza osoba klika i odpowiada.\nKategoria: **${wybranakat}**`)
-            .setColor('#27ae60');
+            const kats = Object.keys(config.kategorie);
+            const wybranakat = kats[Math.floor(Math.random() * kats.length)];
 
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`event_join_${wybranakat}`).setLabel('Zgłoś się! 🙋‍♂️').setStyle(ButtonStyle.Success)
-        );
+            const embed = new EmbedBuilder()
+                .setTitle(`🔔 KONKURS: ${wybranakat.toUpperCase()}`)
+                .setDescription(`Pojawiło się pytanie! Pierwsza osoba klika i odpowiada.\nKategoria: **${wybranakat}**`)
+                .setColor('#27ae60');
 
-        const msg = await channel.send({ embeds: [embed], components: [row] });
-
-        const collector = msg.createMessageComponentCollector({ max: 1, time: 55000 });
-        collector.on('collect', async (i) => {
-            const disabledRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('x').setLabel('Zajęte!').setStyle(ButtonStyle.Secondary).setDisabled(true)
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`event_join_${wybranakat}`)
+                    .setLabel('Zgłoś się! 🙋‍♂️')
+                    .setStyle(ButtonStyle.Success)
             );
-            await i.update({ components: [disabledRow] });
-        });
+
+            const msg = await channel.send({ embeds: [embed], components: [row] });
+
+            // Kolektor wyłączający przycisk po pierwszym kliknięciu
+            const collector = msg.createMessageComponentCollector({ max: 1, time: 55000 });
+            collector.on('collect', async (i) => {
+                const disabledRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('x').setLabel('Zajęte!').setStyle(ButtonStyle.Secondary).setDisabled(true)
+                );
+                await i.update({ components: [disabledRow] });
+            });
+        } catch (error) {
+            console.error("Błąd triggerEvent:", error);
+        }
     },
 
     async createPrivateQuestion(interaction, kategoria) {
@@ -72,12 +86,17 @@ module.exports = {
         const nagroda = config.nagrody[Math.floor(Math.random() * config.nagrody.length)];
 
         try {
-            const channel = await interaction.guild.channels.create({
+            const guild = interaction.guild;
+            const categoryId = process.env.EVENT_CATEGORY_ID;
+
+            // Tworzenie kanału tekstowego w kategorii
+            const channel = await guild.channels.create({
                 name: `${interaction.user.username}-${kategoria}`,
-                parent: process.env.EVENT_CATEGORY_ID,
+                type: 0, 
+                parent: categoryId,
                 permissionOverwrites: [
-                    { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+                    { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
                 ],
             });
 
@@ -86,6 +105,7 @@ module.exports = {
                 .setDescription(`**${pytanie.p}**\n\nMasz **10 sekund** na odpowiedź!`)
                 .setColor('#f39c12');
 
+            // Losowa kolejność odpowiedzi
             const shuffledOptions = pytanie.o.sort(() => Math.random() - 0.5);
             const row = new ActionRowBuilder().addComponents(
                 shuffledOptions.map(opt => 
@@ -97,14 +117,12 @@ module.exports = {
             );
 
             const m = await channel.send({ content: `<@${interaction.user.id}>`, embeds: [qEmbed], components: [row] });
-
             const collector = m.createMessageComponentCollector({ componentType: ComponentType.Button, time: 10000 });
 
             collector.on('collect', async (i) => {
                 if (i.user.id !== interaction.user.id) return i.reply({ content: "To nie Twoje pytanie!", ephemeral: true });
 
                 if (i.customId === 'q_correct') {
-                    // TYLKO INFORMACJA - BRAK MODYFIKACJI BAZY DANYCH
                     await i.update({ 
                         content: `✅ **POPRAWNIE!**\nGracz: <@${i.user.id}>\nWygrana: **${nagroda}**\n\n*Nagroda zostanie przyznana ręcznie przez administrację.*`, 
                         embeds: [], 
@@ -112,7 +130,7 @@ module.exports = {
                     });
                 } else {
                     await i.update({ 
-                        content: `❌ **BŁĄD!**\nNiestety to zła odpowiedź. Poprawna to: **${pytanie.pop}**.`, 
+                        content: `❌ **BŁĄD!**\nPoprawna odpowiedź to: **${pytanie.pop}**.`, 
                         embeds: [], 
                         components: [] 
                     });
@@ -127,7 +145,7 @@ module.exports = {
             });
 
         } catch (e) {
-            console.error("Błąd eventu:", e);
+            console.error("❌ Błąd tworzenia kanału:", e);
         }
     },
 
