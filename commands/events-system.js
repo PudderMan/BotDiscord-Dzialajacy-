@@ -19,10 +19,9 @@ module.exports = {
         client.on('interactionCreate', async (interaction) => {
             if (!interaction.isButton()) return;
             
-            // Reagujemy TYLKO na przyciski eventowe
             if (interaction.customId.startsWith('event_join_')) {
                 try {
-                    // 1. BLOKADA PRZYCISKU - Zmieniamy zielony na szary "Zajęte!"
+                    // Blokada przycisku po kliknięciu
                     const disabledRow = new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
                             .setCustomId('event_busy')
@@ -31,14 +30,11 @@ module.exports = {
                             .setDisabled(true)
                     );
                     
-                    // Używamy update(), aby zakończyć interakcję i zmienić przycisk
                     await interaction.update({ components: [disabledRow] });
                     
-                    // 2. TWORZENIE KANAŁU
                     const kategoria = interaction.customId.replace('event_join_', '');
                     await this.createPrivateQuestion(interaction, kategoria);
                 } catch (e) {
-                    // Ignorujemy błędy wygasłej interakcji, jeśli bot przetworzył ją wcześniej
                     if (e.code !== 10062 && e.code !== 40060) {
                         console.error("❌ Błąd przycisku eventu:", e);
                     }
@@ -46,7 +42,6 @@ module.exports = {
             }
         });
 
-        // Automatyczna pętla czasowa (16:00 - 20:00)
         setInterval(async () => {
             const now = new Date();
             const h = now.getHours();
@@ -67,19 +62,17 @@ module.exports = {
             const kats = Object.keys(config.kategorie);
             const wybranakat = kats[Math.floor(Math.random() * kats.length)];
 
-            const embed = new EmbedBuilder()
-                .setTitle(`🔔 KONKURS: ${wybranakat.toUpperCase()}`)
-                .setDescription(`Pojawiło się pytanie! Pierwsza osoba klika i odpowiada.\nKategoria: **${wybranakat}**`)
-                .setColor('#27ae60');
+            // Wygląd zgodny ze zdjęciem, gdzie "GUZIK" to faktyczny komponent
+            const eventMessage = `Pytanie \`${wybranakat.toUpperCase()}\``;
 
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId(`event_join_${wybranakat}`)
-                    .setLabel('Zgłoś się! 🙋‍♂️')
+                    .setLabel('Zgłoś się!')
                     .setStyle(ButtonStyle.Success)
             );
 
-            await channel.send({ embeds: [embed], components: [row] });
+            await channel.send({ content: eventMessage, components: [row] });
         } catch (e) { console.error(e); }
     },
 
@@ -102,7 +95,6 @@ module.exports = {
                 ],
             });
 
-            // Używamy followUp, ponieważ pierwotna interakcja została już zużyta przez update()
             await interaction.followUp({ content: `✅ Twój kanał został stworzony: ${channel}`, ephemeral: true });
 
             const qEmbed = new EmbedBuilder()
