@@ -57,7 +57,6 @@ module.exports = {
         try {
             const userId = interaction.user.id;
             
-            // Zabezpieczenie przed Unknown Interaction i podwójnym Defer
             if (interaction.customId !== 'start_game' && !interaction.deferred) {
                 await interaction.deferUpdate();
             }
@@ -78,8 +77,8 @@ module.exports = {
                 let cost = 0, dbCol = "", bonusVal = 0;
                 const currentBpPrice = gameConfig.prices.brawlpass_base * Math.pow(gameConfig.prices.brawlpass_scaling, data.brawlpass_count);
 
-                if (item === 'ulps1') { cost = 10000000; bonusVal = 500000; dbCol = 'multiplier'; }
-                else if (item === 'ulps2') { cost = 100000000; bonusVal = 5000000; dbCol = 'multiplier'; }
+                if (item === 'ulps1') { cost = 10000000; bonusVal = 50000; dbCol = 'multiplier'; } // Nowa wartość: 50k
+                else if (item === 'ulps2') { cost = 100000000; bonusVal = 500000; dbCol = 'multiplier'; } // Nowa wartość: 500k
                 else if (item === 'dzik') { cost = gameConfig.prices.dzik_prices[data.dzik] || 0; dbCol = 'dzik'; bonusVal = 1; }
                 else if (item === 'brawlpass') { if (data.brawlpass_count < 2) { cost = currentBpPrice; dbCol = 'brawlpass_count'; bonusVal = 1; } }
                 else if (item === 'paczka') {
@@ -95,13 +94,10 @@ module.exports = {
                 if (cost > 0 && data.proch >= cost && dbCol !== "") {
                     db.prepare(`UPDATE players SET proch = proch - ?, ${dbCol} = ${dbCol} + ? WHERE userId = ?`).run(cost, bonusVal, userId);
                 }
-                // Odświeżamy obiekt danych po zakupie
                 data = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
             }
 
-            // --- WIDOKI (SKLEP / MAGAZYN) ---
-            
-            // Strony sklepu
+            // --- WIDOKI SKLEPU ---
             if (interaction.customId === 'open_shop' || interaction.customId.startsWith('shop_p') || interaction.customId.startsWith('buy_')) {
                 let page = 1;
                 if (interaction.customId.startsWith('shop_p')) page = parseInt(interaction.customId.replace('shop_p', ''));
@@ -109,7 +105,7 @@ module.exports = {
                     page = parseInt(interaction.message.embeds[0].title.split(' ').pop()) || 1;
                 }
 
-                const sEmbed = new EmbedBuilder().setTitle(`🛒 Sklep - Strona ${page}`).setColor('#2ECC71').setDescription(`Twój Proch: **${formatProch(data.proch)}**`);
+                const sEmbed = new EmbedBuilder().setTitle(`🛒 Sklep - Strona ${page}`).setColor('#2ECC71').setDescription(`Proch: **${formatProch(data.proch)}**`);
                 const r1 = new ActionRowBuilder(); const r2 = new ActionRowBuilder();
 
                 if (page === 1) {
@@ -128,16 +124,21 @@ module.exports = {
                     r1.addComponents(new ButtonBuilder().setCustomId('buy_paczka').setLabel('Kup Paczkę').setStyle(ButtonStyle.Danger).setDisabled(hasPaczka));
                     r2.addComponents(new ButtonBuilder().setCustomId('shop_p2').setLabel('⬅️ Strona 2').setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId('shop_p4').setLabel('Strona 4 ➡️').setStyle(ButtonStyle.Primary).setDisabled(data.total_fajerwerki < 20));
                 } else if (page === 4) {
-                    sEmbed.addFields({ name: '💎 Ulepszenie I', value: `+500k klik\nKoszt: 10M`, inline: true }, { name: '🔥 Ulepszenie II', value: `+5M klik\nKoszt: 100M`, inline: true });
-                    r1.addComponents(new ButtonBuilder().setCustomId('buy_ulps1').setLabel('Kup I').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId('buy_ulps2').setLabel('Kup II').setStyle(ButtonStyle.Success));
-                    r2.addComponents(new ButtonBuilder().setCustomId('shop_p3').setLabel('⬅️ Strona 3').setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId('back_to_main').setLabel('🏠 Powrót').setStyle(ButtonStyle.Danger));
+                    sEmbed.addFields(
+                        { name: '💎 Ulepszenie I', value: `+50k mnożnik\nKoszt: 10M`, inline: true }, 
+                        { name: '🔥 Ulepszenie II', value: `+500k mnożnik\nKoszt: 100M`, inline: true }
+                    );
+                    r1.addComponents(
+                        new ButtonBuilder().setCustomId('buy_ulps1').setLabel('Kup I').setStyle(ButtonStyle.Success), 
+                        new ButtonBuilder().setCustomId('buy_ulps2').setLabel('Kup II').setStyle(ButtonStyle.Success)
+                    );
+                    r2.addComponents(new ButtonBuilder().setCustomId('shop_p3').setLabel('⬅️ Strona 3').setStyle(ButtonStyle.Primary), new ButtonBuilderBuilder().setCustomId('back_to_main').setLabel('🏠 Powrót').setStyle(ButtonStyle.Danger));
                 }
                 return await interaction.editReply({ embeds: [sEmbed], components: [r1, r2] });
             }
 
-            // Główne menu magazynu
+            // --- MENU GŁÓWNE ---
             if (interaction.customId === 'back_to_main' || interaction.customId === 'start_game') {
-                const isStart = interaction.customId === 'start_game';
                 const gEmbed = new EmbedBuilder().setTitle('🥂 Twój Magazyn').setImage(gameConfig.gfx.main_gif).setColor(gameConfig.gfx.color)
                     .addFields({ name: '✨ Proch:', value: `${formatProch(data.proch)}`, inline: true }, { name: '🚀 Mnożnik:', value: `${formatMult(curMult)}`, inline: true }, { name: '🎇 Fajerwerki:', value: `${data.fajerwerki_waluta}`, inline: true });
                 const btns = new ActionRowBuilder().addComponents(
@@ -146,7 +147,7 @@ module.exports = {
                     new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatProch(nextPresPrice)})`).setStyle(ButtonStyle.Danger)
                 );
 
-                if (isStart) {
+                if (interaction.customId === 'start_game') {
                     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
                     const ch = await interaction.guild.channels.create({
                         name: `magazyn-${interaction.user.username}`,
@@ -162,7 +163,7 @@ module.exports = {
                 return await interaction.editReply({ embeds: [gEmbed], components: [btns] });
             }
 
-            // Klikanie (Zabierz Proch)
+            // --- KLIKANIE ---
             if (interaction.customId === 'click_proch') {
                 const itemsGain = (data.zimne_ognie * gameConfig.boosts.zimne_ognie) + (data.piccolo * gameConfig.boosts.piccolo) + (data.szampan * gameConfig.boosts.szampan_procenty) + (data.wyrzutnia * gameConfig.boosts.wyrzutnia_pro);
                 const totalGain = Math.floor((1 + itemsGain) * curMult);
@@ -176,13 +177,12 @@ module.exports = {
                 return await interaction.editReply({ embeds: [upEmbed] });
             }
 
-            // Odpalenie (Prestige)
+            // --- ODALENIE (PRESTIGE) ---
             if (interaction.customId === 'firework_boom') {
                 if (data.proch < nextPresPrice) {
                     return await interaction.followUp({ content: `❌ Wymagane: ${formatProch(nextPresPrice)}`, ephemeral: true });
                 }
                 
-                // RESET (multiplier wraca do 1, ulepszenia z 4 strony znikają)
                 db.prepare(`UPDATE players SET proch=0, multiplier=1, zimne_ognie=0, piccolo=0, szampan=0, wyrzutnia=0, dzik=0, brawlpass_count=0, total_fajerwerki=total_fajerwerki+1, fajerwerki_waluta=fajerwerki_waluta+1 WHERE userId=?`).run(userId);
                 
                 const fr = db.prepare('SELECT * FROM players WHERE userId = ?').get(userId);
