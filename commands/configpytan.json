@@ -1,0 +1,35 @@
+{
+  "nagrody": [
+    "500g prochu",
+    "1500g prochu",
+    "5000g prochu",
+    "1x piccolo",
+    "1x zimne_ognie",
+    "1x szampan"
+  ],
+  "kategorie": {
+    "brawlstars": [
+      {"p": "Które stwierdzenie jest prawdziwe ZAWSZE?", "o": ["Super ładuje się po trafieniu wroga", "Super ładuje się po zadaniu obrażeń", "Super ładuje się po użyciu ataku", "Super ładuje się po trafieniu"], "pop": "Super ładuje się po trafieniu"},
+      {"p": "Który brawler NIE MOŻE zadać obrażeń przez ścianę?", "o": ["Barley", "Spike", "Janet", "Nani"], "pop": "Nani"},
+      {"p": "Które zdanie o Showdownie jest fałszywe?", "o": ["Kostki zwiększają obrażenia", "Kostki zwiększają zdrowie", "Kostki zwiększają statystyki", "Kostki zwiększają siłę brawlera"], "pop": "Kostki zwiększają statystyki"},
+      {"p": "Który brawler miał Super bez obrażeń w przeszłości?", "o": ["Poco", "Gene", "Pam", "Sandy"], "pop": "Gene"},
+      {"p": "Który tryb nigdy nie był stały w rotacji?", "o": ["Lone Star", "Present Plunder", "Volley Brawl", "Basket Brawl"], "pop": "Lone Star"},
+      {"p": "Który brawler nie miał gadżetu w dniu premiery?", "o": ["Surge", "Gale", "Amber", "Leon"], "pop": "Leon"},
+      {"p": "Która mechanika NIE resetuje się po śmierci?", "o": ["Stacki Surgea", "Bonus Max", "Liczba kostek mocy", "Naładowany Super"], "pop": "Liczba kostek mocy"},
+      {"p": "Który brawler nigdy nie był top pickiem w Brawl Ballu?", "o": ["Frank", "Jacky", "Mortis", "Edgar"], "pop": "Frank"},
+      {"p": "Który brawler ma najkrótszy zasięg ataku?", "o": ["El Primo", "Rosa", "Edgar", "Jacky"], "pop": "Jacky"},
+      {"p": "Który brawler nie był dostępny za darmo w evencie?", "o": ["Edgar", "Gray", "Mico", "Shelly"], "pop": "Gray"},
+      {"p": "Które zdanie jest prawdziwe, ale brzmi fałszywie?", "o": ["Wygrana bez killi", "Gol bez piłki", "Super bez trafienia", "Wszystkie są prawdziwe"], "pop": "Wszystkie są prawdziwe"}
+    ],
+    "sylwester": [
+      {"p": "Kiedy dokładnie zaczyna się Nowy Rok?", "o": ["O północy", "O 00:00:00", "Po starego roku", "Z nowym dniem"], "pop": "O 00:00:00"},
+      {"p": "Co dzieje się dokładnie o 00:00 w Sylwestra?", "o": ["Zmiana daty", "Start Nowego Roku", "Koniec starego roku", "Wszystkie poprawne"], "pop": "Wszystkie poprawne"},
+      {"p": "Który przedmiot nie resetuje się z Nowym Rokiem?", "o": ["Rok w dacie", "Postanowienia", "Strefy czasowe", "Kalendarz"], "pop": "Strefy czasowe"}
+    ],
+    "remnox": [
+      {"p": "Kto założył serwer Remnox?", "o": ["Bonczek", "Karixon", "Remnox", "Kacper"], "pop": "Karixon"},
+      {"p": "Kto usunął kiedyś chat?", "o": ["Bonczek", "Karixon", "Kacper", "Mikołaj"], "pop": "Bonczek"},
+      {"p": "Kiedy powstał serwer Remnox?", "o": ["13.08.2024", "03.08.2024", "26.09.2024", "01.01.2024"], "pop": "03.08.2024"}
+    ]
+  }
+}
