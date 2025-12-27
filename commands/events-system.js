@@ -1,8 +1,7 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ComponentType } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ComponentType, ChannelType } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
-// Funkcja ładująca konfigurację z pliku w tym samym folderze
 const loadConfig = () => {
     try {
         const filePath = path.join(__dirname, 'configpytan.json');
@@ -15,23 +14,17 @@ const loadConfig = () => {
 
 module.exports = {
     init(client) {
-        console.log("✅ System Eventów (16-20) Aktywny. Nagrody RĘCZNE.");
+        console.log("✅ System Eventów Aktywny. Czas na odpowiedź: 20s. Nagrody: RĘCZNE.");
         
-        // Pętla sprawdzająca czas co minutę
         setInterval(async () => {
             const now = new Date();
             const h = now.getHours();
             const m = now.getMinutes();
-
-            // Okno czasowe 16:00 - 20:00, sprawdzanie co 30 minut (:00 i :30)
             if (h >= 16 && h < 20 && (m === 0 || m === 30)) {
-                if (Math.random() < 0.5) { // 50% szansy na pojawienie się pytania
-                    await this.triggerEvent(client);
-                }
+                if (Math.random() < 0.5) await this.triggerEvent(client);
             }
         }, 60000);
 
-        // Globalny listener dla przycisków
         client.on('interactionCreate', async (interaction) => {
             if (!interaction.isButton()) return;
             if (interaction.customId.startsWith('event_join_')) {
@@ -43,8 +36,9 @@ module.exports = {
 
     async triggerEvent(client) {
         try {
-            const channel = await client.channels.fetch(process.env.EVENT_CHANNEL_ID);
-            if (!channel) return console.error("❌ Nie znaleziono kanału ogłoszeń eventu!");
+            const channelId = process.env.EVENT_CHANNEL_ID;
+            const channel = await client.channels.fetch(channelId).catch(() => null);
+            if (!channel) return console.error("❌ BŁĄD: Nie znaleziono kanału ogłoszeń!");
 
             const config = loadConfig();
             if (!config) return;
@@ -65,8 +59,6 @@ module.exports = {
             );
 
             const msg = await channel.send({ embeds: [embed], components: [row] });
-
-            // Kolektor wyłączający przycisk po pierwszym kliknięciu
             const collector = msg.createMessageComponentCollector({ max: 1, time: 55000 });
             collector.on('collect', async (i) => {
                 const disabledRow = new ActionRowBuilder().addComponents(
@@ -74,9 +66,7 @@ module.exports = {
                 );
                 await i.update({ components: [disabledRow] });
             });
-        } catch (error) {
-            console.error("Błąd triggerEvent:", error);
-        }
+        } catch (error) { console.error("Błąd triggerEvent:", error); }
     },
 
     async createPrivateQuestion(interaction, kategoria) {
@@ -89,23 +79,23 @@ module.exports = {
             const guild = interaction.guild;
             const categoryId = process.env.EVENT_CATEGORY_ID;
 
-            // Tworzenie kanału tekstowego w kategorii
+            // Tworzenie kanału
             const channel = await guild.channels.create({
-                name: `${interaction.user.username}-${kategoria}`,
-                type: 0, 
+                name: `event-${interaction.user.username}`,
+                type: ChannelType.GuildText,
                 parent: categoryId,
                 permissionOverwrites: [
                     { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
+                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
                 ],
             });
 
             const qEmbed = new EmbedBuilder()
                 .setTitle(`PYTANIE: ${kategoria.toUpperCase()}`)
-                .setDescription(`**${pytanie.p}**\n\nMasz **10 sekund** na odpowiedź!`)
-                .setColor('#f39c12');
+                .setDescription(`**${pytanie.p}**\n\nMasz **20 sekund** na odpowiedź!`)
+                .setColor('#f39c12')
+                .setFooter({ text: 'Powodzenia!' });
 
-            // Losowa kolejność odpowiedzi
             const shuffledOptions = pytanie.o.sort(() => Math.random() - 0.5);
             const row = new ActionRowBuilder().addComponents(
                 shuffledOptions.map(opt => 
@@ -116,36 +106,47 @@ module.exports = {
                 )
             );
 
-            const m = await channel.send({ content: `<@${interaction.user.id}>`, embeds: [qEmbed], components: [row] });
-            const collector = m.createMessageComponentCollector({ componentType: ComponentType.Button, time: 10000 });
+            // Wysyłanie wiadomości z PINGIEM gracza
+            await channel.send({ 
+                content: `🔔 <@${interaction.user.id}> Twoje pytanie jest gotowe!`, 
+                embeds: [qEmbed], 
+                components: [row] 
+            });
+            
+            // Informacja dla gracza w miejscu kliknięcia przycisku
+            await interaction.reply({ content: `Twój kanał został stworzony: ${channel}`, ephemeral: true }).catch(() => {});
+
+            // Kolektor ustawiony na 20 sekund (20000 ms)
+            const collector = channel.createMessageComponentCollector({ componentType: ComponentType.Button, time: 20000 });
 
             collector.on('collect', async (i) => {
-                if (i.user.id !== interaction.user.id) return i.reply({ content: "To nie Twoje pytanie!", ephemeral: true });
-
+                if (i.user.id !== interaction.user.id) return;
+                
                 if (i.customId === 'q_correct') {
                     await i.update({ 
                         content: `✅ **POPRAWNIE!**\nGracz: <@${i.user.id}>\nWygrana: **${nagroda}**\n\n*Nagroda zostanie przyznana ręcznie przez administrację.*`, 
-                        embeds: [], 
-                        components: [] 
+                        embeds: [], components: [] 
                     });
                 } else {
                     await i.update({ 
-                        content: `❌ **BŁĄD!**\nPoprawna odpowiedź to: **${pytanie.pop}**.`, 
-                        embeds: [], 
-                        components: [] 
+                        content: `❌ **BŁĄD!**\nNiestety to nie ta odpowiedź. Poprawna to: **${pytanie.pop}**.`, 
+                        embeds: [], components: [] 
                     });
                 }
                 collector.stop('done');
             });
 
             collector.on('end', async (_, reason) => {
-                if (reason === 'time') await channel.send("⏰ **KONIEC CZASU!**");
-                await channel.send("🏁 Kanał zostanie usunięty za 5 sekund.");
+                if (reason === 'time') {
+                    await channel.send("⏰ **KONIEC CZASU!** Nie udzielono odpowiedzi w ciągu 20 sekund.");
+                }
+                await channel.send("🏁 Kanał zostanie usunięty za 5 sekund...");
                 setTimeout(() => channel.delete().catch(() => {}), 5000);
             });
 
         } catch (e) {
-            console.error("❌ Błąd tworzenia kanału:", e);
+            console.error("❌ Błąd:", e);
+            await interaction.reply({ content: "Nie udało się stworzyć kanału. Sprawdź uprawnienia bota i ID kategorii.", ephemeral: true }).catch(() => {});
         }
     },
 
