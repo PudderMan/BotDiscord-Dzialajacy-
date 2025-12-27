@@ -58,7 +58,7 @@ module.exports = {
                         { name: '🎇 Fajerwerki:', value: `${data.fajerwerki_waluta}`, inline: true }
                     );
                 const mainBtns = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('click_proch').setLabel('Zabierz Proch! 🧨').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId('click_proch').setLabel('Zbierz Proch! 🧨').setStyle(ButtonStyle.Success),
                     new ButtonBuilder().setCustomId('open_shop').setLabel('Sklep 🛒').setStyle(ButtonStyle.Primary),
                     new ButtonBuilder().setCustomId('firework_boom').setLabel(`ODPAL (${formatNum(nextPresPrice)})`).setStyle(ButtonStyle.Danger)
                 );
