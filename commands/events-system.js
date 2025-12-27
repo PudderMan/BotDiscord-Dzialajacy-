@@ -21,7 +21,6 @@ module.exports = {
             
             if (interaction.customId.startsWith('event_join_')) {
                 try {
-                    // Blokada przycisku po kliknięciu
                     const disabledRow = new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
                             .setCustomId('event_busy')
@@ -62,7 +61,6 @@ module.exports = {
             const kats = Object.keys(config.kategorie);
             const wybranakat = kats[Math.floor(Math.random() * kats.length)];
 
-            // Wygląd zgodny ze zdjęciem, gdzie "GUZIK" to faktyczny komponent
             const eventMessage = `Pytanie \`${wybranakat.toUpperCase()}\``;
 
             const row = new ActionRowBuilder().addComponents(
@@ -114,19 +112,29 @@ module.exports = {
             const m = await channel.send({ content: `🔔 <@${interaction.user.id}>`, embeds: [qEmbed], components: [row] });
             const collector = m.createMessageComponentCollector({ componentType: ComponentType.Button, time: 20000 });
 
+            let answeredCorrectly = false;
+
             collector.on('collect', async (i) => {
                 if (i.user.id !== interaction.user.id) return;
+                
                 if (i.customId === 'q_correct') {
-                    await i.update({ content: `✅ **DOBRZE!** Wygrana: **${nagroda}**`, embeds: [], components: [] });
+                    answeredCorrectly = true;
+                    await i.update({ content: `✅ **DOBRZE!** Wygrana: **${nagroda}**\n*Kanał pozostaje otwarty dla Administracji.*`, embeds: [], components: [] });
+                    collector.stop('correct');
                 } else {
-                    await i.update({ content: `❌ **ŹLE!** Poprawna odpowiedź: **${pytanie.pop}**`, embeds: [], components: [] });
+                    await i.update({ content: `❌ **ŹLE!** Poprawna odpowiedź: **${pytanie.pop}**\n*Kanał zostanie usunięty za 5 sekund.*`, embeds: [], components: [] });
+                    collector.stop('wrong');
                 }
-                collector.stop();
             });
 
             collector.on('end', async (_, reason) => {
-                if (reason === 'time') await channel.send("⏰ Koniec czasu na odpowiedź.");
-                setTimeout(() => channel.delete().catch(() => {}), 5000);
+                if (reason === 'time') {
+                    await channel.send("⏰ Koniec czasu na odpowiedź. Kanał zostanie usunięty za 5 sekund.");
+                    setTimeout(() => channel.delete().catch(() => {}), 5000);
+                } else if (reason === 'wrong') {
+                    setTimeout(() => channel.delete().catch(() => {}), 5000);
+                }
+                // Jeśli reason === 'correct', nic nie robimy - kanał zostaje.
             });
 
         } catch (e) {

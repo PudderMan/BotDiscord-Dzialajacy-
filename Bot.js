@@ -53,6 +53,8 @@ client.on('interactionCreate', async interaction => {
 
 // Logowanie bota
 client.login(process.env.DISCORD_TOKEN).then(() => {
+    client.user.setActivity('wybuchające fajerwerki', { type: 3 });
+
     console.log(`
     ====================================
     🚀 BOT SYLWESTROWY JEST ONLINE!
