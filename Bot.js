@@ -2,7 +2,7 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { loadCommands } = require('./command-loader.js');
 const gra = require('./commands/gra.js');
-// DODANO: Import systemu eventów
+// Import systemu eventów
 const eventSystem = require('./commands/events-system.js'); 
 
 const client = new Client({ 
@@ -30,17 +30,17 @@ client.on('interactionCreate', async interaction => {
 
         // 2. OBSŁUGA PRZYCISKÓW
         if (interaction.isButton()) {
-            // Przekazujemy interakcję do modułu gry
+            // SPRAWDZENIE: Czy przycisk należy do systemu eventów?
+            // Jeśli tak, ignorujemy go tutaj, bo zajmie się nim eventSystem.init()
+            if (interaction.customId.startsWith('event_join_')) {
+                return; 
+            }
+
+            // Obsługa pozostałych przycisków przez moduł gry
             if (gra && gra.handleInteraction) {
                 await gra.handleInteraction(interaction);
-            } 
-            
-            // DODANO: Obsługa przycisków eventowych (np. "Zgłoś się!")
-            // Jeśli przycisk należy do eventu, system go obsłuży
-            if (interaction.customId.startsWith('event_join_')) {
-                const kategoria = interaction.customId.replace('event_join_', '');
-                await interaction.deferReply({ ephemeral: true });
-                await eventSystem.createPrivateQuestion(interaction, kategoria);
+            } else {
+                console.error("❌ Moduł gry nie został poprawnie załadowany!");
             }
         }
     } catch (error) {
@@ -61,6 +61,10 @@ client.login(process.env.DISCORD_TOKEN).then(() => {
     ====================================
     `);
 
-    // DODANO: Uruchomienie pętli czasowej eventów (16:00 - 20:00)
-    eventSystem.init(client);
+    // Uruchomienie słuchacza przycisków eventowych i pętli czasowej
+    if (eventSystem && eventSystem.init) {
+        eventSystem.init(client);
+    } else {
+        console.error("❌ Nie udało się zainicjować systemu eventów!");
+    }
 });

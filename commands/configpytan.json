@@ -20,7 +20,7 @@
       {"p": "Która mechanika NIE resetuje się po śmierci?", "o": ["Stacki Surgea", "Bonus Max", "Liczba kostek mocy", "Naładowany Super"], "pop": "Liczba kostek mocy"},
       {"p": "Który brawler nigdy nie był top pickiem w Brawl Ballu?", "o": ["Frank", "Jacky", "Mortis", "Edgar"], "pop": "Frank"},
       {"p": "Który brawler ma najkrótszy zasięg ataku?", "o": ["El Primo", "Rosa", "Edgar", "Jacky"], "pop": "Jacky"},
-      {"p": "Który brawler nie był dostępny za darmo w evencie?", "o": ["Edgar", "Gray", "Mico", "Shelly"], "pop": "Shelly"},
+      {"p": "Który brawler nie był dostępny za darmo w evencie?", "o": ["Edgar", "Gray", "Mico", "Shelly"], "pop": "Gray"},
       {"p": "Które zdanie jest prawdziwe, ale brzmi fałszywie?", "o": ["Wygrana bez killi", "Gol bez piłki", "Super bez trafienia", "Wszystkie są prawdziwe"], "pop": "Wszystkie są prawdziwe"}
     ],
     "sylwester": [
@@ -29,8 +29,8 @@
       {"p": "Który przedmiot nie resetuje się z Nowym Rokiem?", "o": ["Rok w dacie", "Postanowienia", "Strefy czasowe", "Kalendarz"], "pop": "Strefy czasowe"}
     ],
     "remnox": [
-      {"p": "Kto założył serwer Remnox?", "o": ["Bonczek", "Karixon", "Remnox", "Kacper"], "pop": "Karixon"},
-      {"p": "Kto usunął kiedyś chat?", "o": ["Bonczek", "Karixon", "Kacper", "Mikołaj"], "pop": "Bonczek"},
+      {"p": "Kto założył serwer Remnox?", "o": ["Bonczek", "Karixon", "Remnox", "Karnikal"], "pop": "Karixon"},
+      {"p": "Kto usunął kiedyś chat?", "o": ["Bonczek", "Karixon", "Kacper", "Kazik"], "pop": "Bonczek"},
       {"p": "Kiedy powstał serwer Remnox?", "o": ["13.08.2024", "03.08.2024", "26.09.2024", "13.07.2024"], "pop": "13.08.2024"}
     ]
   }
