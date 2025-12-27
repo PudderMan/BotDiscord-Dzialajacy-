@@ -119,10 +119,19 @@ module.exports = {
                 
                 if (i.customId === 'q_correct') {
                     answeredCorrectly = true;
-                    await i.update({ content: `✅ **DOBRZE!** Wygrana: **${nagroda}**\n*Kanał pozostaje otwarty dla Administracji.*`, embeds: [], components: [] });
+                    // Usunięto dopisek o administracji
+                    await i.update({ 
+                        content: `✅ **DOBRZE!** Wygrana: **${nagroda}**`, 
+                        embeds: [], 
+                        components: [] 
+                    });
                     collector.stop('correct');
                 } else {
-                    await i.update({ content: `❌ **ŹLE!** Poprawna odpowiedź: **${pytanie.pop}**\n*Kanał zostanie usunięty za 5 sekund.*`, embeds: [], components: [] });
+                    await i.update({ 
+                        content: `❌ **ŹLE!** Poprawna odpowiedź: **${pytanie.pop}**\n*Kanał zostanie usunięty za 5 sekund.*`, 
+                        embeds: [], 
+                        components: [] 
+                    });
                     collector.stop('wrong');
                 }
             });
