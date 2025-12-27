@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-// Wychodzimy o jeden folder wyżej do katalogu głównego
+// Ta linia mówi: wyjdź z folderu 'commands' (../) i szukaj pliku w folderze głównym
 const eventSystem = require('../events-system.js');
 
 module.exports = {
@@ -10,17 +10,17 @@ module.exports = {
 
     async execute(interaction) {
         try {
-            // Przekazujemy clienta bota do systemu eventów
+            // Próba wywołania funkcji z pliku głównego
             await eventSystem.triggerManual(interaction.client);
             
             await interaction.reply({ 
-                content: '✅ Pomyślnie wymuszono start pytania eventowego!', 
+                content: '✅ Pytanie eventowe zostało wysłane na kanał!', 
                 ephemeral: true 
             });
         } catch (error) {
-            console.error("Błąd podczas ręcznego startu eventu:", error);
+            console.error("Błąd komendy eventstart:", error);
             await interaction.reply({ 
-                content: '❌ Wystąpił błąd (prawdopodobnie brak pliku events-system.js w folderze głównym).', 
+                content: '❌ Nie udało się uruchomić eventu. Upewnij się, że plik events-system.js jest w folderze głównym.', 
                 ephemeral: true 
             });
         }
