@@ -5,10 +5,10 @@
   },
   "prices": {
     "zimne_ognie": 50,
-    "piccolo": 500,
-    "szampan_procenty": 2500,
-    "wyrzutnia_pro": 10000,
-    "dzik_prices": [50000, 75000, 125000, 250000, 500000],
+    "piccolo": 350,
+    "szampan_procenty": 1750,
+    "wyrzutnia_pro": 5500,
+    "dzik_prices": [25000, 50000, 75000, 100000, 500000],
     "prestige_base": 100000,
     "prestige_scaling": 2.5,
     "brawlpass_base": 500000,
@@ -19,7 +19,7 @@
     "zimne_ognie": 1,
     "piccolo": 10,
     "szampan_procenty": 50,
-    "wyrzutnia_pro": 250,
+    "wyrzutnia_pro": 200,
     "dzik_val": 1.5,
     "brawlpass_limit": 2
   }
