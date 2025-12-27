@@ -87,10 +87,10 @@ module.exports = {
 
                 if (page === 1) {
                     sEmbed.addFields(
-                        { name: '🎇 Zimne', value: `${gameConfig.prices.zimne_ognie}g`, inline: true },
-                        { name: '🍾 Piccolo', value: `${gameConfig.prices.piccolo}g`, inline: true },
-                        { name: '🥂 Szampan', value: `${gameConfig.prices.szampan_procenty}g`, inline: true },
-                        { name: '🚀 Wyrzutnia', value: `${gameConfig.prices.wyrzutnia_pro}g`, inline: true }
+                        { name: '🎇 Zimne', value: `${gameConfig.prices.zimne_ognie}g (+1)`, inline: true },
+                        { name: '🍾 Piccolo', value: `${gameConfig.prices.piccolo}g (+10)`, inline: true },
+                        { name: '🥂 Szampan', value: `${gameConfig.prices.szampan_procenty}g (+50)`, inline: true },
+                        { name: '🚀 Wyrzutnia', value: `${gameConfig.prices.wyrzutnia_pro}g (+250)`, inline: true }
                     );
                     row1.addComponents(
                         new ButtonBuilder().setCustomId('buy_zimne').setLabel('Zimne').setStyle(ButtonStyle.Secondary),
@@ -102,7 +102,7 @@ module.exports = {
                     rows.push(row1, row2);
                 } else if (page === 2) {
                     const dzikCost = gameConfig.prices.dzik_prices[data.dzik] || "MAX";
-                    sEmbed.addFields({ name: `🐗 Dzik (${data.dzik}/5)`, value: `${dzikCost === "MAX" ? "MAX" : formatNum(dzikCost)}`, inline: true }, { name: `🌵 BP (${data.brawlpass_count}/${gameConfig.boosts.brawlpass_limit})`, value: `${formatNum(currentBpPrice)}`, inline: true });
+                    sEmbed.addFields({ name: `🐗 Dzik (${data.dzik}/5) (*1.5)`, value: `${dzikCost === "MAX" ? "MAX" : formatNum(dzikCost)}`, inline: true }, { name: `🌵 BP (${data.brawlpass_count}/${gameConfig.boosts.brawlpass_limit}) (*5)`, value: `${formatNum(currentBpPrice)}`, inline: true });
                     row1.addComponents(
                         new ButtonBuilder().setCustomId('buy_dzik').setLabel('Dzik').setStyle(ButtonStyle.Success).setDisabled(dzikCost === "MAX"),
                         new ButtonBuilder().setCustomId('buy_brawlpass').setLabel('BrawlPass').setStyle(ButtonStyle.Danger).setDisabled(data.brawlpass_count >= gameConfig.boosts.brawlpass_limit)
