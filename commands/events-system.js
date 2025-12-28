@@ -21,6 +21,11 @@ module.exports = {
             
             if (interaction.customId.startsWith('event_join_')) {
                 try {
+                    // Zabezpieczenie przed błędem Unknown Interaction
+                    if (!interaction.deferred && !interaction.replied) {
+                        await interaction.deferUpdate();
+                    }
+
                     const disabledRow = new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
                             .setCustomId('event_busy')
@@ -29,7 +34,8 @@ module.exports = {
                             .setDisabled(true)
                     );
                     
-                    await interaction.update({ components: [disabledRow] });
+                    // Używamy editReply, bo wcześniej daliśmy deferUpdate
+                    await interaction.editReply({ components: [disabledRow] });
                     
                     const kategoria = interaction.customId.replace('event_join_', '');
                     await this.createPrivateQuestion(interaction, kategoria);
@@ -41,15 +47,14 @@ module.exports = {
             }
         });
 
+        // Pętla sprawdzająca czas co minutę
         setInterval(async () => {
-            // Pobieramy czas wymuszając strefę czasową Warszawy
             const polandTime = new Date().toLocaleString("en-US", { timeZone: "Europe/Warsaw" });
             const now = new Date(polandTime);
             
             const h = now.getHours();
             const m = now.getMinutes();
 
-            // Teraz możesz wpisać polskie godziny bezpośrednio (16:00 - 20:00)
             if (h >= 16 && h < 20 && (m === 0 || m === 30)) {
                 if (Math.random() < 0.5) {
                     await this.triggerEvent(client);
@@ -65,6 +70,8 @@ module.exports = {
             if (!channel) return;
 
             const config = loadConfig();
+            if (!config) return;
+
             const kats = Object.keys(config.kategorie);
             const wybranakat = kats[Math.floor(Math.random() * kats.length)];
 
@@ -100,6 +107,7 @@ module.exports = {
                 ],
             });
 
+            // Odpowiadamy followUp na oryginalną interakcję
             await interaction.followUp({ content: `✅ Twój kanał został stworzony: ${channel}`, ephemeral: true });
 
             const qEmbed = new EmbedBuilder()
@@ -107,8 +115,10 @@ module.exports = {
                 .setDescription(`**${pytanie.p}**\n\nMasz **20 sekund**!`)
                 .setColor('#f39c12');
 
+            const shuffledOptions = [...pytanie.o].sort(() => Math.random() - 0.5);
+
             const row = new ActionRowBuilder().addComponents(
-                pytanie.o.sort(() => Math.random() - 0.5).map(opt => 
+                shuffledOptions.map(opt => 
                     new ButtonBuilder()
                         .setCustomId(opt === pytanie.pop ? 'q_correct' : `q_wrong_${Math.random()}`)
                         .setLabel(opt)
@@ -117,24 +127,26 @@ module.exports = {
             );
 
             const m = await channel.send({ content: `🔔 <@${interaction.user.id}>`, embeds: [qEmbed], components: [row] });
-            const collector = m.createMessageComponentCollector({ componentType: ComponentType.Button, time: 20000 });
-
-            let answeredCorrectly = false;
+            const collector = m.createMessageComponentCollector({ 
+                componentType: ComponentType.Button, 
+                time: 20000 
+            });
 
             collector.on('collect', async (i) => {
                 if (i.user.id !== interaction.user.id) return;
                 
+                // Kluczowe: deferUpdate zapobiega Unknown Interaction w kanale prywatnym
+                if (!i.deferred && !i.replied) await i.deferUpdate();
+
                 if (i.customId === 'q_correct') {
-                    answeredCorrectly = true;
-                    // Usunięto dopisek o administracji
-                    await i.update({ 
-                        content: `✅ **DOBRZE!** Wygrana: **${nagroda}**`, 
+                    await i.editReply({ 
+                        content: `✅ **DOBRZE!** Wygrana: **${nagroda}**`, //
                         embeds: [], 
                         components: [] 
                     });
                     collector.stop('correct');
                 } else {
-                    await i.update({ 
+                    await i.editReply({ 
                         content: `❌ **ŹLE!** Poprawna odpowiedź: **${pytanie.pop}**\n*Kanał zostanie usunięty za 5 sekund.*`, 
                         embeds: [], 
                         components: [] 
@@ -150,7 +162,6 @@ module.exports = {
                 } else if (reason === 'wrong') {
                     setTimeout(() => channel.delete().catch(() => {}), 5000);
                 }
-                // Jeśli reason === 'correct', nic nie robimy - kanał zostaje.
             });
 
         } catch (e) {
