@@ -21,7 +21,7 @@ module.exports = {
             
             if (interaction.customId.startsWith('event_join_')) {
                 try {
-                    // Zabezpieczenie przed błędem Unknown Interaction
+                    // 1. Natychmiastowe potwierdzenie interakcji, aby nie wygasła
                     if (!interaction.deferred && !interaction.replied) {
                         await interaction.deferUpdate();
                     }
@@ -34,7 +34,7 @@ module.exports = {
                             .setDisabled(true)
                     );
                     
-                    // Używamy editReply, bo wcześniej daliśmy deferUpdate
+                    // Używamy editReply, ponieważ interakcja została już odroczona (deferred)
                     await interaction.editReply({ components: [disabledRow] });
                     
                     const kategoria = interaction.customId.replace('event_join_', '');
@@ -47,7 +47,6 @@ module.exports = {
             }
         });
 
-        // Pętla sprawdzająca czas co minutę
         setInterval(async () => {
             const polandTime = new Date().toLocaleString("en-US", { timeZone: "Europe/Warsaw" });
             const now = new Date(polandTime);
@@ -107,7 +106,7 @@ module.exports = {
                 ],
             });
 
-            // Odpowiadamy followUp na oryginalną interakcję
+            // Wysyłamy wiadomość efemeryczną informującą o kanale
             await interaction.followUp({ content: `✅ Twój kanał został stworzony: ${channel}`, ephemeral: true });
 
             const qEmbed = new EmbedBuilder()
@@ -115,10 +114,11 @@ module.exports = {
                 .setDescription(`**${pytanie.p}**\n\nMasz **20 sekund**!`)
                 .setColor('#f39c12');
 
-            const shuffledOptions = [...pytanie.o].sort(() => Math.random() - 0.5);
+            // Tworzymy kopię opcji przed mieszaniem, aby nie psuć bazy w pamięci
+            const options = [...pytanie.o].sort(() => Math.random() - 0.5);
 
             const row = new ActionRowBuilder().addComponents(
-                shuffledOptions.map(opt => 
+                options.map(opt => 
                     new ButtonBuilder()
                         .setCustomId(opt === pytanie.pop ? 'q_correct' : `q_wrong_${Math.random()}`)
                         .setLabel(opt)
@@ -127,20 +127,20 @@ module.exports = {
             );
 
             const m = await channel.send({ content: `🔔 <@${interaction.user.id}>`, embeds: [qEmbed], components: [row] });
-            const collector = m.createMessageComponentCollector({ 
-                componentType: ComponentType.Button, 
-                time: 20000 
-            });
+            const collector = m.createMessageComponentCollector({ componentType: ComponentType.Button, time: 20000 });
 
             collector.on('collect', async (i) => {
                 if (i.user.id !== interaction.user.id) return;
                 
-                // Kluczowe: deferUpdate zapobiega Unknown Interaction w kanale prywatnym
-                if (!i.deferred && !i.replied) await i.deferUpdate();
+                // 2. Zapobieganie Unknown interaction wewnątrz prywatnego kanału
+                if (!i.deferred && !i.replied) {
+                    await i.deferUpdate();
+                }
 
                 if (i.customId === 'q_correct') {
+                    // Używamy editReply zamiast update
                     await i.editReply({ 
-                        content: `✅ **DOBRZE!** Wygrana: **${nagroda}**`, //
+                        content: `✅ **DOBRZE!** Wygrana: **${nagroda}**`,
                         embeds: [], 
                         components: [] 
                     });
