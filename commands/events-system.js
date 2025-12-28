@@ -21,11 +21,11 @@ module.exports = {
             
             if (interaction.customId.startsWith('event_join_')) {
                 try {
-                    // 1. Natychmiastowe potwierdzenie interakcji, aby nie wygasła
+                    // Zabezpieczenie przed Unknown Interaction - natychmiastowe potwierdzenie
                     if (!interaction.deferred && !interaction.replied) {
                         await interaction.deferUpdate();
                     }
-
+                    
                     const disabledRow = new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
                             .setCustomId('event_busy')
@@ -34,7 +34,7 @@ module.exports = {
                             .setDisabled(true)
                     );
                     
-                    // Używamy editReply, ponieważ interakcja została już odroczona (deferred)
+                    // Używamy editReply, bo interakcja jest już w stanie 'deferred'
                     await interaction.editReply({ components: [disabledRow] });
                     
                     const kategoria = interaction.customId.replace('event_join_', '');
@@ -50,7 +50,6 @@ module.exports = {
         setInterval(async () => {
             const polandTime = new Date().toLocaleString("en-US", { timeZone: "Europe/Warsaw" });
             const now = new Date(polandTime);
-            
             const h = now.getHours();
             const m = now.getMinutes();
 
@@ -69,13 +68,10 @@ module.exports = {
             if (!channel) return;
 
             const config = loadConfig();
-            if (!config) return;
-
             const kats = Object.keys(config.kategorie);
             const wybranakat = kats[Math.floor(Math.random() * kats.length)];
 
             const eventMessage = `Pytanie \`${wybranakat.toUpperCase()}\``;
-
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId(`event_join_${wybranakat}`)
@@ -95,7 +91,6 @@ module.exports = {
 
         try {
             const categoryId = process.env.EVENT_CATEGORY_ID.trim();
-            
             const channel = await interaction.guild.channels.create({
                 name: `event-${interaction.user.username}`,
                 type: ChannelType.GuildText,
@@ -106,7 +101,6 @@ module.exports = {
                 ],
             });
 
-            // Wysyłamy wiadomość efemeryczną informującą o kanale
             await interaction.followUp({ content: `✅ Twój kanał został stworzony: ${channel}`, ephemeral: true });
 
             const qEmbed = new EmbedBuilder()
@@ -114,11 +108,8 @@ module.exports = {
                 .setDescription(`**${pytanie.p}**\n\nMasz **20 sekund**!`)
                 .setColor('#f39c12');
 
-            // Tworzymy kopię opcji przed mieszaniem, aby nie psuć bazy w pamięci
-            const options = [...pytanie.o].sort(() => Math.random() - 0.5);
-
             const row = new ActionRowBuilder().addComponents(
-                options.map(opt => 
+                [...pytanie.o].sort(() => Math.random() - 0.5).map(opt => 
                     new ButtonBuilder()
                         .setCustomId(opt === pytanie.pop ? 'q_correct' : `q_wrong_${Math.random()}`)
                         .setLabel(opt)
@@ -132,15 +123,13 @@ module.exports = {
             collector.on('collect', async (i) => {
                 if (i.user.id !== interaction.user.id) return;
                 
-                // 2. Zapobieganie Unknown interaction wewnątrz prywatnego kanału
-                if (!i.deferred && !i.replied) {
-                    await i.deferUpdate();
-                }
-
+                // Kluczowe: Najpierw deferUpdate, aby uniknąć wygaśnięcia interakcji w kanale prywatnym
+                if (!i.deferred && !i.replied) await i.deferUpdate();
+                
                 if (i.customId === 'q_correct') {
-                    // Używamy editReply zamiast update
+                    // Używamy editReply, aby uniknąć błędów InteractionAlreadyReplied
                     await i.editReply({ 
-                        content: `✅ **DOBRZE!** Wygrana: **${nagroda}**`,
+                        content: `✅ **DOBRZE!** Wygrana: **${nagroda}**`, 
                         embeds: [], 
                         components: [] 
                     });
